@@ -1,0 +1,63 @@
+::Стан роутера::
+Яка команда показує завантаження CPU, пам'ять і uptime? {
+=/system resource print
+~/tool resource print
+~/ip resource print
+#### `/system resource print` — перша команда щоденної діагностики. Також корисні: `/system package print`, `/system clock print`.
+}
+
+::Список інтерфейсів::
+Як швидко перевірити всі інтерфейси та їхній стан? {
+=/interface print
+~/ip interface print
+~/system interface print
+#### Базовий огляд — `/interface print`; деталі — `/interface print detail`. Для bridge: `/interface bridge port print`.
+}
+
+::IP-адреси::
+Де переглянути призначені IPv4-адреси на інтерфейсах? {
+=/ip address print
+~/interface address print
+~/ip dhcp print
+#### `/ip address print` показує, які адреси на яких інтерфейсах. Маршрути — `/ip route print`.
+}
+
+::Маршрути::
+Яка команда показує таблицю маршрутизації IPv4? {
+=/ip route print
+~/routing table print
+~/ip forward print
+#### `/ip route print` — щоденна перевірка default route, статичних і динамічних маршрутів.
+}
+
+::tool ping::
+Чим `/tool ping` зручний для діагностики? {
+=діагностичний ping з роутера з додатковими параметрами
+~імпортує конфігурацію з файлу
+~видаляє NAT-правила
+#### Також є коротка `/ping 8.8.8.8`, але `/tool ping` дає більше опцій. Для маршруту: `/tool traceroute`.
+}
+
+::Логи в реальному часі::
+Як стежити за новими записами лога без повторного запуску команди? {
+=/log print follow
+~/log monitor live
+~/tool log follow
+#### `follow` показує нові записи в реальному часі. Фільтр: `/log print where topics~"firewall"` або `topics~"ipsec"`.
+}
+
+::Активні користувачі::
+Як побачити, хто зараз підключений до роутера? {
+=/user active print
+~/ip user session print
+~/system login print
+#### `/user active print` — активні CLI/Winbox/API сесії. Разом із `/ip service print` для аудиту доступу.
+}
+
+::Firewall у щоденній роботі::
+Який набір команд типовий для щоденної перевірки firewall? {
+=/ip firewall filter print та /ip firewall nat print
+~/system reset-configuration та /import
+~/interface disable на всіх портах
+#### Щоденна практика: filter, nat, address-list, connection print. Зміни — лише після `print detail`, export і safe-mode.
+}

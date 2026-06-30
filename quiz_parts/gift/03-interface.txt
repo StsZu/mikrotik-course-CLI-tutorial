@@ -1,0 +1,63 @@
+::Bridge — призначення::
+Для чого використовують `/interface bridge`? {
+=об'єднання портів у L2 bridge/switching (LAN bridge, VLAN bridge)
+~шифрування всього трафіку на роутері
+~налаштування DNS-сервера для LAN
+#### Bridge поєднує фізичні інтерфейси в один логічний L2-домен. Типовий сценарій — LAN bridge з кількох ethernet-портів.
+}
+
+::Wi-Fi інтерфейси::
+Де в RouterOS 7 налаштовують Wi-Fi (SSID, radio, security)? {
+=/interface wifi
+~/ip wifi
+~/wireless package
+#### У новому стилі RouterOS 7 Wi-Fi керується через `/interface wifi`. Для клієнтів: `/interface wifi registration-table print`.
+}
+
+::WireGuard::
+Що налаштовується в `/interface wireguard`? {
+=сучасний VPN: інтерфейси WireGuard і peers
+~тільки PPPoE-підключення до провайдера
+~сертифікати Let's Encrypt
+#### WireGuard — сучасний VPN для remote access і site-to-site. Peers дивіться: `/interface wireguard peers print`.
+}
+
+::VLAN::
+Навіщо створюють `/interface vlan`? {
+=сегментація мережі, trunk/access VLAN
+~збільшення швидкості CPU роутера
+~автоматичний backup конфігурації
+#### VLAN дозволяє логічно розділити мережу на окремі broadcast-домени поверх одного фізичного порту.
+}
+
+::Ризик disable::
+Чому `disable` на інтерфейсі — високоризикова дія? {
+=може миттєво відрізати доступ по мережі (WAN, VPN, Wi-Fi, management)
+~лише скидає лічильники трафіку
+~впливає тільки на відображення в `print`
+#### `/interface disable` або `set ... disabled=yes` вимикає порт/тунель. На віддаленому роутері це часта причина втрати доступу.
+}
+
+::Interface list::
+Для чого використовують `/interface list`? {
+=групування інтерфейсів (WAN, LAN, manage) для firewall і сервісів
+~перегляд системних логів
+~створення DHCP lease
+#### Списки інтерфейсів спрощують правила firewall, neighbor discovery і прив'язку сервісів до WAN/LAN.
+}
+
+::monitor-traffic::
+Яка команда показує live-трафік на інтерфейсі? {
+=/interface monitor-traffic ether1
+~/tool torch only ether1
+~/ip firewall connection print
+#### `monitor-traffic` — безпечна діагностика навантаження на конкретному інтерфейсі в реальному часі.
+}
+
+::Перегляд bridge-портів::
+Як перевірити, які порти входять у bridge? {
+=/interface bridge port print
+~/interface bridge print detail only
+~/ip address print
+#### Список bridge-інтерфейсів — `/interface bridge print`, а прив'язані порти — `/interface bridge port print`.
+}

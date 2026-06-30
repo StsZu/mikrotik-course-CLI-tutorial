@@ -1,0 +1,79 @@
+::Розділ /ip::
+Що входить у зону відповідальності `/ip` у RouterOS? {
+=IPv4: адреси, DHCP, DNS, firewall, NAT, routes, services, IPsec
+~тільки фізичні ethernet-порти
+~лише системні пакети та backup
+#### `/ip` — основний розділ для IPv4-мережі й безпеки. Окремо є `/ipv6` для IPv6-середовищ.
+}
+
+::Firewall filter::
+Де переглядають правила фільтрації трафіку? {
+=/ip firewall filter print
+~/interface firewall print
+~/system firewall print
+#### Filter rules обробляють forward/input/output трафік. Базова діагностика: `/ip firewall filter print detail`.
+}
+
+::Порядок правил firewall::
+Як RouterOS обробляє правила у `/ip firewall filter`? {
+=зверху вниз; перше збігле правило застосовується
+~випадковим чином для балансування
+~знизу вгору; останнє правило завжди має пріоритет
+#### Порядок правил критичний. Команда `move` у firewall — високий ризик: можна випадково відкрити або заблокувати трафік.
+}
+
+::NAT::
+Де налаштовують source NAT, dst-nat, masquerade? {
+=/ip firewall nat
+~/ip nat-route
+~/interface nat
+#### NAT-правила живуть у `/ip firewall nat`. Перегляд: `/ip firewall nat print detail`.
+}
+
+::Address-list::
+Як переглянути списки адрес для firewall? {
+=/ip firewall address-list print
+~/ip address-list print
+~/tool address-list print
+#### Address-list використовують у правилах filter/NAT для групування IP/мереж. Безпечний перегляд — `print`.
+}
+
+::Активні з'єднання::
+Яка команда показує поточні firewall/NAT з'єднання? {
+=/ip firewall connection print
+~/ip connection monitor
+~/tool connection print
+#### `connection print` корисний для діагностики: які сесії активні, які порти, скільки трафіку.
+}
+
+::IP Services::
+Де перевірити, які сервіси роутера слухають порти (winbox, ssh, www)? {
+=/ip service print
+~/user service print
+~/system service print
+#### `/ip service print` показує доступні сервіси управління. Зміна через `/ip service set` — ризикова без плану.
+}
+
+::Користувачі роутера::
+Як переглянути локальних користувачів RouterOS? {
+=/user print
+~/ip user print
+~/system user print
+#### `/user` керує доступом до роутера. Також корисно: `/user group print` і `/user active print` для активних сесій.
+}
+
+::Небезпечні firewall-дії::
+Яку дію в firewall краще не робити без backup і safe-mode? {
+=/ip firewall filter remove
+~/ip firewall filter print detail
+~/ip firewall filter reset-counters
+#### `remove` на filter або nat може відкрити мережу або заблокувати управління. Перед змінами — `export` і `/safe-mode`.
+}
+
+::SSH налаштування::
+Де переглянути параметри SSH-сервісу на роутері? {
+=/ip ssh print
+~/interface ssh print
+~/tool ssh print
+#### SSH — частина IP-сервісів. Для загального списку сервісів: `/ip service print`; деталі SSH: `/ip ssh print`.
+}

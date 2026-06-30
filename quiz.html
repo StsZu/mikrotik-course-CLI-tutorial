@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MikroTik RouterOS CLI Quiz</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #e6edf3;
+      --muted: #8b949e; --green: #3fb950; --cyan: #39c5cf; --yellow: #d29922;
+      --accent: #00a0e0; --blue: #58a6ff; --purple: #a371f7; --red: #f85149;
+      --font: "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: radial-gradient(1200px 600px at 10% -10%, #0a2a3d 0%, var(--bg) 55%);
+      color: var(--text); font-family: Inter, system-ui, sans-serif;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .top-nav {
+      display: flex; gap: 10px; align-items: center; margin-bottom: 16px;
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .top-nav a {
+      color: var(--muted); text-decoration: none; font-size: 0.88rem;
+      padding: 6px 12px; border-radius: 8px; border: 1px solid transparent;
+    }
+    .top-nav a:hover { color: var(--text); background: #21262d; }
+    .top-nav a.active {
+      color: var(--accent); border-color: var(--accent);
+      background: rgba(0, 160, 224, 0.12);
+    }
+    header h1 { font-size: 1.25rem; margin: 0 0 6px; }
+    header p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+    .layout { display: grid; grid-template-columns: 260px 1fr; gap: 14px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .sidebar { order: 2; } }
+    .sidebar, .main-panel {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    }
+    .sidebar { padding: 14px; max-height: calc(100vh - 140px); overflow-y: auto; }
+    .sidebar h2 {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin: 0 0 10px;
+    }
+    .sec-list { list-style: none; padding: 0; margin: 0; }
+    .sec-list li {
+      padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 0.78rem;
+      display: flex; justify-content: space-between; gap: 6px;
+    }
+    .sec-list li:hover { background: #21262d; }
+    .sec-list li.active { background: #21262d; color: var(--accent); }
+    .sec-list li.done { color: var(--green); }
+    .sec-list small { color: var(--muted); font-family: var(--font); }
+    .progress { height: 6px; background: #21262d; border-radius: 99px; overflow: hidden; margin: 10px 0 6px; }
+    .progress > div {
+      height: 100%; background: linear-gradient(90deg, var(--accent), var(--cyan));
+      width: 0%; transition: width 0.3s;
+    }
+    .stats { color: var(--muted); font-size: 0.78rem; margin-bottom: 12px; }
+    .main-panel { padding: 18px; min-height: 480px; }
+    .q-meta { color: var(--muted); font-size: 0.78rem; margin-bottom: 14px; }
+    .q-meta span { color: var(--cyan); font-family: var(--font); }
+    .q-card {
+      border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+      margin-bottom: 16px; background: #0d1117;
+    }
+    .q-title { color: var(--purple); font-size: 0.82rem; font-weight: 600; margin-bottom: 8px; }
+    .q-text { font-size: 0.95rem; line-height: 1.55; margin-bottom: 14px; }
+    .opt {
+      display: block; width: 100%; text-align: left; margin-bottom: 8px;
+      padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: #161b22; color: var(--text); font-size: 0.88rem;
+      cursor: pointer; line-height: 1.4;
+    }
+    .opt:hover:not(:disabled) { border-color: var(--blue); background: #1c2128; }
+    .opt.correct { border-color: var(--green); background: rgba(63, 185, 80, 0.12); }
+    .opt.wrong { border-color: var(--red); background: rgba(248, 81, 73, 0.1); }
+    .opt:disabled { cursor: default; opacity: 0.95; }
+    .feedback {
+      margin-top: 12px; padding: 12px; border-radius: 8px;
+      background: rgba(210, 153, 34, 0.1); border-left: 3px solid var(--yellow);
+      color: #e6c87a; font-size: 0.86rem; line-height: 1.5; display: none;
+    }
+    .feedback.show { display: block; }
+    .pager {
+      display: flex; gap: 8px; justify-content: space-between; align-items: center;
+      margin-top: 8px; flex-wrap: wrap;
+    }
+    .btn {
+      background: #21262d; border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 14px; font-size: 0.82rem; cursor: pointer;
+    }
+    .btn:hover { background: #30363d; }
+    .btn-primary { background: #0077a8; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent); color: #0d1117; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .mode-btns { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .mode-btns .btn.active { border-color: var(--blue); color: var(--blue); }
+    .all-view .q-card { scroll-margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="top-nav">
+      <a href="index.html">Тренажер CLI</a>
+      <a href="quiz.html" class="active">Quiz (54 питань)</a>
+    </nav>
+    <header>
+      <h1>MikroTik RouterOS CLI Quiz</h1>
+      <p>
+        6 розділів з <code>quiz_parts/gift/</code> (GIFT Moodle).
+        Обери розділ зліва · режим «По одному» або «Всі в розділі».
+      </p>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>Прогрес</h2>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="stats" id="progressText">0 / 0</div>
+        <h2>Розділи</h2>
+        <ul class="sec-list" id="secList"></ul>
+      </aside>
+      <section class="main-panel" id="mainPanel">
+        <div class="mode-btns">
+          <button type="button" class="btn active" id="btnModeOne">По одному</button>
+          <button type="button" class="btn" id="btnModeAll">Всі в розділі</button>
+        </div>
+        <div id="quizArea"></div>
+        <div class="pager" id="pager" style="display:none">
+          <button type="button" class="btn" id="btnPrev">← Назад</button>
+          <span class="stats" id="pagerText"></span>
+          <button type="button" class="btn btn-primary" id="btnNext">Далі →</button>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script id="quizData" type="application/json">[{"id": "01-cli-basics", "file": "01-cli-basics.txt", "timecode": "§1", "label": "CLI основи", "questions": [{"title": "Що означає символ / у MikroTik CLI?", "question": "У RouterOS символ `/` на початку команди означає:", "options": [{"text": "повний шлях до меню конфігурації CLI", "correct": true}, {"text": "окрему slash-команду агента, як у Claude Code", "correct": false}, {"text": "команду негайного перезавантаження роутера", "correct": false}], "feedback": "У MikroTik `/ip firewall filter` — це шлях до розділу, а не окрема «магічна» команда. Дії `print`, `add`, `set`, `remove` виконуються всередині цього меню."}, {"title": "Приклад повного шляху CLI", "question": "Який з варіантів є коректним повним шляхом до перегляду правил firewall filter?", "options": [{"text": "/ip firewall filter print", "correct": true}, {"text": "firewall filter print", "correct": false}, {"text": "/ip/firewall-filter/show", "correct": false}], "feedback": "Повний шлях завжди починається з `/` і повторює ієрархію меню RouterOS: `/ip firewall filter`, потім дія `print`."}, {"title": "Дії всередині меню", "question": "Що робить команда `print` у будь-якому розділі RouterOS CLI?", "options": [{"text": "показує список об'єктів у поточному меню", "correct": true}, {"text": "додає новий об'єкт у конфігурацію", "correct": false}, {"text": "видаляє об'єкт за номером", "correct": false}], "feedback": "`print` — базова дія для читання. Вона безпечна і не змінює конфігурацію. Для деталей використовуйте `print detail`."}, {"title": "print проти add", "question": "Яка пара «дія → наслідок» описана правильно?", "options": [{"text": "`print` — перегляд; `add` — додавання нового об'єкта", "correct": true}, {"text": "`print` — видалення; `add` — перегляд", "correct": false}, {"text": "`print` — зміна параметрів; `add` — експорт", "correct": false}], "feedback": "`add`, `set`, `remove`, `reset` змінюють конфігурацію. `print`, `monitor`, `find`, `export` зазвичай безпечні для читання."}, {"title": "Пошук команд верхнього рівня", "question": "Як побачити доступні root-команди після введення `/`?", "options": [{"text": "натиснути Tab або F1", "correct": true}, {"text": "ввести `help /` і натиснути Enter", "correct": false}, {"text": "автоматично з'явиться список без додаткових дій", "correct": false}], "feedback": "На MikroTik після `/` або `/interface/` натискання Tab або F1 показує доступні підкоманди поточного рівня меню."}, {"title": "Пошук підкоманд у розділі", "question": "Що треба зробити, щоб побачити підкоманди в `/ip/ipsec/`?", "options": [{"text": "ввести `/ip/ipsec/` і натиснути Tab", "correct": true}, {"text": "виконати `/ip/ipsec help`", "correct": false}, {"text": "виконати `/ip/ipsec list`", "correct": false}], "feedback": "Той самий принцип, що й на root-рівні: перейдіть у меню та натисніть Tab або F1 для автодоповнення/підказок."}, {"title": "Основні root-розділи", "question": "Який root-розділ відповідає за IPv4: адреси, DHCP, DNS, firewall, NAT, routes?", "options": [{"text": "/ip", "correct": true}, {"text": "/interface", "correct": false}, {"text": "/system", "correct": false}], "feedback": "`/ip` — головний розділ для IPv4-мережі та безпеки. `/interface` — фізичні й логічні інтерфейси, `/system` — адміністрування роутера."}, {"title": "Шлях до Wi-Fi клієнтів", "question": "Яка команда показує таблицю підключених Wi-Fi клієнтів?", "options": [{"text": "/interface wifi registration-table print", "correct": true}, {"text": "/wifi clients print", "correct": false}, {"text": "/interface wireless registration print", "correct": false}], "feedback": "У RouterOS 7 Wi-Fi керується через `/interface wifi`. Для перегляду клієнтів — `registration-table print`."}, {"title": "print detail", "question": "Чим `print detail` відрізняється від звичайного `print`?", "options": [{"text": "показує розширену детальну інформацію про об'єкти", "correct": true}, {"text": "видаляє приховані об'єкти з виводу", "correct": false}, {"text": "експортує конфігурацію у файл на диск", "correct": false}], "feedback": "`print detail` — рекомендований перший крок перед змінами: більше полів, зручніше для діагностики. Не змінює конфігурацію."}]}, {"id": "02-safety", "file": "02-safety.txt", "timecode": "§2", "label": "Безпека", "questions": [{"title": "Safe Mode — призначення", "question": "Навіщо вмикати `/safe-mode` перед ризиковими змінами?", "options": [{"text": "зміни відкочуються, якщо сесія CLI обривається", "correct": true}, {"text": "роутер автоматично робить backup на USB", "correct": false}, {"text": "блокує всі команди крім `print`", "correct": false}], "feedback": "Safe Mode захищає від самоблокування під час віддаленої роботи: при обриві з'єднання незастосовані зміни скасовуються."}, {"title": "Команда Safe Mode", "question": "Як увімкнути Safe Mode у CLI?", "options": [{"text": "/safe-mode", "correct": true}, {"text": "/system safe-mode enable", "correct": false}, {"text": "/tool safe-mode on", "correct": false}], "feedback": "Safe Mode — пряма службова команда root-рівня: `/safe-mode`. Особливо корисна перед мережевими, firewall і VPN змінами."}, {"title": "Backup перед змінами", "question": "Яка команда зберігає backup конфігурації з ім'ям `before-change`?", "options": [{"text": "/system backup save name=before-change", "correct": true}, {"text": "/export backup name=before-change", "correct": false}, {"text": "/file backup save before-change", "correct": false}], "feedback": "`/system backup save` створює бінарний backup. Разом із `/export file=before-change` дає два рівні відновлення перед ризиковими діями."}, {"title": "Export конфігурації", "question": "Що робить `/export file=before-change`?", "options": [{"text": "експортує конфігурацію у текстовий .rsc файл на роутері", "correct": true}, {"text": "негайно перезавантажує роутер", "correct": false}, {"text": "імпортує конфігурацію з файлу", "correct": false}], "feedback": "`/export` — безпечна команда для документації та аудиту. Текстовий export зручний для перегляду, порівняння та часткового відновлення."}, {"title": "Ризик import", "question": "Чому `/import` вважають дуже небезпечною командою?", "options": [{"text": "може масово застосувати зміни з файлу і відрізати доступ", "correct": true}, {"text": "лише читає файл без змін конфігурації", "correct": false}, {"text": "працює тільки з логами, не з конфігурацією", "correct": false}], "feedback": "`/import` виконує команди зі script/export файлу. Одна помилка в файлі може зламати мережу або VPN — завжди робіть backup і safe-mode."}, {"title": "Безпечні команди читання", "question": "Які команди зазвичай безпечні для перегляду без зміни конфігурації?", "options": [{"text": "`print`, `monitor`, `find`, `export`", "correct": true}, {"text": "`add`, `set`, `remove`, `import`", "correct": false}, {"text": "`reset`, `disable`, `enable`, `import`", "correct": false}], "feedback": "Команди читання не змінюють стан. Команди `add`, `set`, `remove`, `reset`, `import` — змінюють конфігурацію і потребують обережності."}, {"title": "Небезпечні команди", "question": "Перед якими діями особливо важливі backup і safe-mode?", "options": [{"text": "`remove`, `reset`, `set`, `disable`, `enable`, `import`", "correct": true}, {"text": "`print`, `monitor`, `find`", "correct": false}, {"text": "`comment`, `export`, `reset-counters`", "correct": false}], "feedback": "`remove` і `reset` можуть миттєво зламати доступ. `disable` на WAN/VPN/Wi-Fi також ризиковий. Спочатку `print detail`, потім backup/export."}, {"title": "Рекомендований порядок роботи", "question": "Який порядок дій рекомендований перед зміною конфігурації?", "options": [{"text": "спочатку `print detail`, потім `export`, потім `safe-mode`, потім одна зміна", "correct": true}, {"text": "одразу `import`, потім `reset`, потім перевірка", "correct": false}, {"text": "20 команд пакетом, потім `print`", "correct": false}], "feedback": "Не виконуйте пакет змін віддалено. RouterOS виконає все — навіть якщо це відріже вам доступ. Одна зміна → перевірка → наступна."}, {"title": "Undo і Redo", "question": "Що робить `/undo` у RouterOS CLI?", "options": [{"text": "скасовує останню зміну, якщо це можливо", "correct": true}, {"text": "видаляє всі firewall правила", "correct": false}, {"text": "вимикає Safe Mode", "correct": false}], "feedback": "`/undo` і `/redo` допомагають відкотити/повторити останню операцію, але не замінюють повноцінний backup перед серйозними змінами."}, {"title": "Команди, яких краще уникати без плану", "question": "Яку команду з переліку краще не запускати без чіткого плану і backup?", "options": [{"text": "/system reset-configuration", "correct": true}, {"text": "/system resource print", "correct": false}, {"text": "/log print", "correct": false}], "feedback": "`/system reset-configuration` скидає конфігурацію. Так само небезпечні без плану: `/import`, `/ip firewall filter remove`, `/user remove`, `/certificate remove`."}]}, {"id": "03-interface", "file": "03-interface.txt", "timecode": "§3", "label": "Інтерфейси", "questions": [{"title": "Bridge — призначення", "question": "Для чого використовують `/interface bridge`?", "options": [{"text": "об'єднання портів у L2 bridge/switching (LAN bridge, VLAN bridge)", "correct": true}, {"text": "шифрування всього трафіку на роутері", "correct": false}, {"text": "налаштування DNS-сервера для LAN", "correct": false}], "feedback": "Bridge поєднує фізичні інтерфейси в один логічний L2-домен. Типовий сценарій — LAN bridge з кількох ethernet-портів."}, {"title": "Wi-Fi інтерфейси", "question": "Де в RouterOS 7 налаштовують Wi-Fi (SSID, radio, security)?", "options": [{"text": "/interface wifi", "correct": true}, {"text": "/ip wifi", "correct": false}, {"text": "/wireless package", "correct": false}], "feedback": "У новому стилі RouterOS 7 Wi-Fi керується через `/interface wifi`. Для клієнтів: `/interface wifi registration-table print`."}, {"title": "WireGuard", "question": "Що налаштовується в `/interface wireguard`?", "options": [{"text": "сучасний VPN: інтерфейси WireGuard і peers", "correct": true}, {"text": "тільки PPPoE-підключення до провайдера", "correct": false}, {"text": "сертифікати Let's Encrypt", "correct": false}], "feedback": "WireGuard — сучасний VPN для remote access і site-to-site. Peers дивіться: `/interface wireguard peers print`."}, {"title": "VLAN", "question": "Навіщо створюють `/interface vlan`?", "options": [{"text": "сегментація мережі, trunk/access VLAN", "correct": true}, {"text": "збільшення швидкості CPU роутера", "correct": false}, {"text": "автоматичний backup конфігурації", "correct": false}], "feedback": "VLAN дозволяє логічно розділити мережу на окремі broadcast-домени поверх одного фізичного порту."}, {"title": "Ризик disable", "question": "Чому `disable` на інтерфейсі — високоризикова дія?", "options": [{"text": "може миттєво відрізати доступ по мережі (WAN, VPN, Wi-Fi, management)", "correct": true}, {"text": "лише скидає лічильники трафіку", "correct": false}, {"text": "впливає тільки на відображення в `print`", "correct": false}], "feedback": "`/interface disable` або `set ... disabled=yes` вимикає порт/тунель. На віддаленому роутері це часта причина втрати доступу."}, {"title": "Interface list", "question": "Для чого використовують `/interface list`?", "options": [{"text": "групування інтерфейсів (WAN, LAN, manage) для firewall і сервісів", "correct": true}, {"text": "перегляд системних логів", "correct": false}, {"text": "створення DHCP lease", "correct": false}], "feedback": "Списки інтерфейсів спрощують правила firewall, neighbor discovery і прив'язку сервісів до WAN/LAN."}, {"title": "monitor-traffic", "question": "Яка команда показує live-трафік на інтерфейсі?", "options": [{"text": "/interface monitor-traffic ether1", "correct": true}, {"text": "/tool torch only ether1", "correct": false}, {"text": "/ip firewall connection print", "correct": false}], "feedback": "`monitor-traffic` — безпечна діагностика навантаження на конкретному інтерфейсі в реальному часі."}, {"title": "Перегляд bridge-портів", "question": "Як перевірити, які порти входять у bridge?", "options": [{"text": "/interface bridge port print", "correct": true}, {"text": "/interface bridge print detail only", "correct": false}, {"text": "/ip address print", "correct": false}], "feedback": "Список bridge-інтерфейсів — `/interface bridge print`, а прив'язані порти — `/interface bridge port print`."}]}, {"id": "04-ip-firewall", "file": "04-ip-firewall.txt", "timecode": "§4", "label": "IP і Firewall", "questions": [{"title": "Розділ /ip", "question": "Що входить у зону відповідальності `/ip` у RouterOS?", "options": [{"text": "IPv4: адреси, DHCP, DNS, firewall, NAT, routes, services, IPsec", "correct": true}, {"text": "тільки фізичні ethernet-порти", "correct": false}, {"text": "лише системні пакети та backup", "correct": false}], "feedback": "`/ip` — основний розділ для IPv4-мережі й безпеки. Окремо є `/ipv6` для IPv6-середовищ."}, {"title": "Firewall filter", "question": "Де переглядають правила фільтрації трафіку?", "options": [{"text": "/ip firewall filter print", "correct": true}, {"text": "/interface firewall print", "correct": false}, {"text": "/system firewall print", "correct": false}], "feedback": "Filter rules обробляють forward/input/output трафік. Базова діагностика: `/ip firewall filter print detail`."}, {"title": "Порядок правил firewall", "question": "Як RouterOS обробляє правила у `/ip firewall filter`?", "options": [{"text": "зверху вниз; перше збігле правило застосовується", "correct": true}, {"text": "випадковим чином для балансування", "correct": false}, {"text": "знизу вгору; останнє правило завжди має пріоритет", "correct": false}], "feedback": "Порядок правил критичний. Команда `move` у firewall — високий ризик: можна випадково відкрити або заблокувати трафік."}, {"title": "NAT", "question": "Де налаштовують source NAT, dst-nat, masquerade?", "options": [{"text": "/ip firewall nat", "correct": true}, {"text": "/ip nat-route", "correct": false}, {"text": "/interface nat", "correct": false}], "feedback": "NAT-правила живуть у `/ip firewall nat`. Перегляд: `/ip firewall nat print detail`."}, {"title": "Address-list", "question": "Як переглянути списки адрес для firewall?", "options": [{"text": "/ip firewall address-list print", "correct": true}, {"text": "/ip address-list print", "correct": false}, {"text": "/tool address-list print", "correct": false}], "feedback": "Address-list використовують у правилах filter/NAT для групування IP/мереж. Безпечний перегляд — `print`."}, {"title": "Активні з'єднання", "question": "Яка команда показує поточні firewall/NAT з'єднання?", "options": [{"text": "/ip firewall connection print", "correct": true}, {"text": "/ip connection monitor", "correct": false}, {"text": "/tool connection print", "correct": false}], "feedback": "`connection print` корисний для діагностики: які сесії активні, які порти, скільки трафіку."}, {"title": "IP Services", "question": "Де перевірити, які сервіси роутера слухають порти (winbox, ssh, www)?", "options": [{"text": "/ip service print", "correct": true}, {"text": "/user service print", "correct": false}, {"text": "/system service print", "correct": false}], "feedback": "`/ip service print` показує доступні сервіси управління. Зміна через `/ip service set` — ризикова без плану."}, {"title": "Користувачі роутера", "question": "Як переглянути локальних користувачів RouterOS?", "options": [{"text": "/user print", "correct": true}, {"text": "/ip user print", "correct": false}, {"text": "/system user print", "correct": false}], "feedback": "`/user` керує доступом до роутера. Також корисно: `/user group print` і `/user active print` для активних сесій."}, {"title": "Небезпечні firewall-дії", "question": "Яку дію в firewall краще не робити без backup і safe-mode?", "options": [{"text": "/ip firewall filter remove", "correct": true}, {"text": "/ip firewall filter print detail", "correct": false}, {"text": "/ip firewall filter reset-counters", "correct": false}], "feedback": "`remove` на filter або nat може відкрити мережу або заблокувати управління. Перед змінами — `export` і `/safe-mode`."}, {"title": "SSH налаштування", "question": "Де переглянути параметри SSH-сервісу на роутері?", "options": [{"text": "/ip ssh print", "correct": true}, {"text": "/interface ssh print", "correct": false}, {"text": "/tool ssh print", "correct": false}], "feedback": "SSH — частина IP-сервісів. Для загального списку сервісів: `/ip service print`; деталі SSH: `/ip ssh print`."}]}, {"id": "05-vpn-cert", "file": "05-vpn-cert.txt", "timecode": "§5", "label": "VPN і сертифікати", "questions": [{"title": "IPsec peer", "question": "Що налаштовує `/ip/ipsec peer`?", "options": [{"text": "віддалений IPsec peer: address, exchange mode, profile", "correct": true}, {"text": "лише Wi-Fi пароль і SSID", "correct": false}, {"text": "DHCP lease для VPN-клієнтів", "correct": false}], "feedback": "Peer описує віддалену сторону VPN-тунелю. Діагностика: `/ip/ipsec peer print detail`."}, {"title": "IPsec policy", "question": "Для чого потрібен `/ip/ipsec policy`?", "options": [{"text": "визначає, який трафік шифрувати між якими subnet/IP", "correct": true}, {"text": "зберігає системні логи IPsec", "correct": false}, {"text": "створює DNS-записи для VPN", "correct": false}], "feedback": "Policy-based VPN: policy задає селектори трафіку (src/dst). Неправильна policy — тунель є, але трафік не ходить."}, {"title": "installed-sa", "question": "Що показує `/ip/ipsec installed-sa print`?", "options": [{"text": "встановлені Security Associations — чи реально працює IPsec tunnel", "correct": true}, {"text": "список усіх користувачів роутера", "correct": false}, {"text": "конфігурацію DHCP-сервера", "correct": false}], "feedback": "SA підтверджують, що Phase 2/Child SA піднялись. Якщо peer active, а SA немає — проблема в policy/proposal/identity."}, {"title": "active-peers", "question": "Навіщо дивитися `/ip/ipsec active-peers print`?", "options": [{"text": "перевірити, хто зараз підключений і чи встановився IKE", "correct": true}, {"text": "експортувати сертифікати на USB", "correct": false}, {"text": "скинути лічильники ethernet-портів", "correct": false}], "feedback": "Active peers показують стан IKE-фази. Корисно разом із `installed-sa` і `/log print where topics~\"ipsec\"`."}, {"title": "IPsec identity", "question": "Що задає `/ip/ipsec identity`?", "options": [{"text": "метод автентифікації peer: PSK, certificate, policy template group", "correct": true}, {"text": "MAC-адреси Wi-Fi клієнтів", "correct": false}, {"text": "швидкість WAN-каналу", "correct": false}], "feedback": "Identity зв'язує peer з способом автентифікації. Помилка тут — типова причина failed IKE negotiation."}, {"title": "Сертифікати — перегляд", "question": "Як перевірити наявність і статус сертифікатів на роутері?", "options": [{"text": "/certificate print detail", "correct": true}, {"text": "/ip certificate print", "correct": false}, {"text": "/system certificate list", "correct": false}], "feedback": "`/certificate print detail` показує імена, термін дії, fingerprint. Фільтр: `/certificate print where name~\"vpn\"`."}, {"title": "Підпис сертифіката", "question": "Що робить `/certificate sign` на MikroTik?", "options": [{"text": "підписує сертифікат локальним CA на самому роутері", "correct": true}, {"text": "видаляє прострочений сертифікат", "correct": false}, {"text": "імпортує CRL з інтернету", "correct": false}], "feedback": "MikroTik може виступати CA і підписувати server/client certificates. Також є `sign-certificate-request` для зовнішніх CSR."}, {"title": "Ризик export-certificate", "question": "Чому `/certificate export-certificate` потребує особливої обережності?", "options": [{"text": "може експортувати приватний ключ — це секрет, не просто файл", "correct": true}, {"text": "працює лише з системними логами", "correct": false}, {"text": "автоматично вимикає всі VPN", "correct": false}], "feedback": "Експорт з приватним ключем — критичний секрет. Зберігайте з passphrase і не передавайте незахищеним каналом."}, {"title": "Небезпечні IPsec-зміни", "question": "Яка зміни може «покласти» VPN і відрізати remote access?", "options": [{"text": "/ip/ipsec policy remove", "correct": true}, {"text": "/ip/ipsec statistics print", "correct": false}, {"text": "/ip/ipsec active-peers print", "correct": false}], "feedback": "`policy remove`, `peer remove`, `identity remove`, `profile set`, `proposal set` — високий ризик. Перед змінами: safe-mode, backup, export."}]}, {"id": "06-daily-practice", "file": "06-daily-practice.txt", "timecode": "§6", "label": "Щоденна практика", "questions": [{"title": "Стан роутера", "question": "Яка команда показує завантаження CPU, пам'ять і uptime?", "options": [{"text": "/system resource print", "correct": true}, {"text": "/tool resource print", "correct": false}, {"text": "/ip resource print", "correct": false}], "feedback": "`/system resource print` — перша команда щоденної діагностики. Також корисні: `/system package print`, `/system clock print`."}, {"title": "Список інтерфейсів", "question": "Як швидко перевірити всі інтерфейси та їхній стан?", "options": [{"text": "/interface print", "correct": true}, {"text": "/ip interface print", "correct": false}, {"text": "/system interface print", "correct": false}], "feedback": "Базовий огляд — `/interface print`; деталі — `/interface print detail`. Для bridge: `/interface bridge port print`."}, {"title": "IP-адреси", "question": "Де переглянути призначені IPv4-адреси на інтерфейсах?", "options": [{"text": "/ip address print", "correct": true}, {"text": "/interface address print", "correct": false}, {"text": "/ip dhcp print", "correct": false}], "feedback": "`/ip address print` показує, які адреси на яких інтерфейсах. Маршрути — `/ip route print`."}, {"title": "Маршрути", "question": "Яка команда показує таблицю маршрутизації IPv4?", "options": [{"text": "/ip route print", "correct": true}, {"text": "/routing table print", "correct": false}, {"text": "/ip forward print", "correct": false}], "feedback": "`/ip route print` — щоденна перевірка default route, статичних і динамічних маршрутів."}, {"title": "tool ping", "question": "Чим `/tool ping` зручний для діагностики?", "options": [{"text": "діагностичний ping з роутера з додатковими параметрами", "correct": true}, {"text": "імпортує конфігурацію з файлу", "correct": false}, {"text": "видаляє NAT-правила", "correct": false}], "feedback": "Також є коротка `/ping 8.8.8.8`, але `/tool ping` дає більше опцій. Для маршруту: `/tool traceroute`."}, {"title": "Логи в реальному часі", "question": "Як стежити за новими записами лога без повторного запуску команди?", "options": [{"text": "/log print follow", "correct": true}, {"text": "/log monitor live", "correct": false}, {"text": "/tool log follow", "correct": false}], "feedback": "`follow` показує нові записи в реальному часі. Фільтр: `/log print where topics~\"firewall\"` або `topics~\"ipsec\"`."}, {"title": "Активні користувачі", "question": "Як побачити, хто зараз підключений до роутера?", "options": [{"text": "/user active print", "correct": true}, {"text": "/ip user session print", "correct": false}, {"text": "/system login print", "correct": false}], "feedback": "`/user active print` — активні CLI/Winbox/API сесії. Разом із `/ip service print` для аудиту доступу."}, {"title": "Firewall у щоденній роботі", "question": "Який набір команд типовий для щоденної перевірки firewall?", "options": [{"text": "/ip firewall filter print та /ip firewall nat print", "correct": true}, {"text": "/system reset-configuration та /import", "correct": false}, {"text": "/interface disable на всіх портах", "correct": false}], "feedback": "Щоденна практика: filter, nat, address-list, connection print. Зміни — лише після `print detail`, export і safe-mode."}]}]</script>
+  <script>
+    const SECTIONS = JSON.parse(document.getElementById("quizData").textContent);
+    const state = {
+      sectionIdx: 0,
+      qIdx: 0,
+      mode: "one",
+      answered: new Set(),
+      correct: new Set()
+    };
+
+    function esc(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function qKey(si, qi) { return si + ":" + qi; }
+
+    function currentQuestions() {
+      return SECTIONS[state.sectionIdx]?.questions || [];
+    }
+
+    function updateProgress() {
+      let total = 0, ans = 0, ok = 0;
+      SECTIONS.forEach((s, si) => {
+        s.questions.forEach((_, qi) => {
+          total++;
+          const k = qKey(si, qi);
+          if (state.answered.has(k)) ans++;
+          if (state.correct.has(k)) ok++;
+        });
+      });
+      document.getElementById("progressBar").style.width = total ? (ok / total * 100) + "%" : "0%";
+      document.getElementById("progressText").textContent =
+        `Правильно: ${ok} / ${total} · Відповідей: ${ans}`;
+      document.querySelectorAll("#secList li").forEach((li, i) => {
+        const sec = SECTIONS[i];
+        let done = 0;
+        sec.questions.forEach((_, qi) => {
+          if (state.correct.has(qKey(i, qi))) done++;
+        });
+        li.classList.toggle("done", done === sec.questions.length && sec.questions.length > 0);
+      });
+    }
+
+    function buildSidebar() {
+      const ul = document.getElementById("secList");
+      ul.innerHTML = SECTIONS.map((s, i) =>
+        `<li data-i="${i}" class="${i === state.sectionIdx ? "active" : ""}">
+          <span>${esc(s.label)}</span>
+          <small>${s.questions.length}</small>
+        </li>`
+      ).join("");
+      ul.querySelectorAll("li").forEach(li => {
+        li.addEventListener("click", () => {
+          state.sectionIdx = +li.dataset.i;
+          state.qIdx = 0;
+          buildSidebar();
+          render();
+        });
+      });
+    }
+
+    function renderQuestionCard(q, si, qi, container) {
+      const k = qKey(si, qi);
+      const answered = state.answered.has(k);
+      const card = document.createElement("div");
+      card.className = "q-card";
+      card.dataset.qi = qi;
+      let optsHtml = q.options.map((o, oi) => {
+        let cls = "opt";
+        if (answered) {
+          if (o.correct) cls += " correct";
+          else if (card.dataset.picked === String(oi)) cls += " wrong";
+        }
+        return `<button type="button" class="${cls}" data-oi="${oi}" ${answered ? "disabled" : ""}>${esc(o.text)}</button>`;
+      }).join("");
+      card.innerHTML = `
+        <div class="q-title">${esc(q.title)}</div>
+        <div class="q-text">${esc(q.question)}</div>
+        <div class="opts">${q.options.map((o, oi) =>
+          `<button type="button" class="opt" data-oi="${oi}">${esc(o.text)}</button>`
+        ).join("")}</div>
+        <div class="feedback">${esc(q.feedback)}</div>
+      `;
+      card.querySelectorAll(".opt").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (state.answered.has(k)) return;
+          const oi = +btn.dataset.oi;
+          card.dataset.picked = oi;
+          state.answered.add(k);
+          if (q.options[oi].correct) state.correct.add(k);
+          card.querySelectorAll(".opt").forEach((b, j) => {
+            b.disabled = true;
+            if (q.options[j].correct) b.classList.add("correct");
+            else if (j === oi) b.classList.add("wrong");
+          });
+          card.querySelector(".feedback").classList.add("show");
+          updateProgress();
+        });
+      });
+      container.appendChild(card);
+    }
+
+    function render() {
+      const sec = SECTIONS[state.sectionIdx];
+      const qs = sec.questions;
+      const area = document.getElementById("quizArea");
+      const pager = document.getElementById("pager");
+      area.innerHTML = "";
+      area.className = state.mode === "all" ? "all-view" : "";
+
+      if (!qs.length) {
+        area.innerHTML = "<p class='stats'>Немає питань у цьому розділі.</p>";
+        pager.style.display = "none";
+        return;
+      }
+
+      if (state.mode === "all") {
+        pager.style.display = "none";
+        area.innerHTML = `<div class="q-meta"><span>${esc(sec.timecode)}</span> · ${esc(sec.label)} · ${qs.length} питань</div>`;
+        const wrap = document.createElement("div");
+        qs.forEach((q, qi) => renderQuestionCard(q, state.sectionIdx, qi, wrap));
+        area.appendChild(wrap);
+      } else {
+        pager.style.display = "flex";
+        state.qIdx = Math.min(state.qIdx, qs.length - 1);
+        area.innerHTML = `<div class="q-meta"><span>${esc(sec.timecode)}</span> · ${esc(sec.label)} · питання ${state.qIdx + 1} / ${qs.length}</div>`;
+        const wrap = document.createElement("div");
+        renderQuestionCard(qs[state.qIdx], state.sectionIdx, state.qIdx, wrap);
+        area.appendChild(wrap);
+        document.getElementById("pagerText").textContent = `${state.qIdx + 1} / ${qs.length}`;
+        document.getElementById("btnPrev").disabled = state.qIdx === 0;
+        document.getElementById("btnNext").disabled = state.qIdx >= qs.length - 1;
+      }
+      updateProgress();
+    }
+
+    document.getElementById("btnPrev").addEventListener("click", () => {
+      if (state.qIdx > 0) { state.qIdx--; render(); }
+    });
+    document.getElementById("btnNext").addEventListener("click", () => {
+      const qs = currentQuestions();
+      if (state.qIdx < qs.length - 1) { state.qIdx++; render(); }
+    });
+    document.getElementById("btnModeOne").addEventListener("click", () => {
+      state.mode = "one";
+      document.getElementById("btnModeOne").classList.add("active");
+      document.getElementById("btnModeAll").classList.remove("active");
+      render();
+    });
+    document.getElementById("btnModeAll").addEventListener("click", () => {
+      state.mode = "all";
+      document.getElementById("btnModeAll").classList.add("active");
+      document.getElementById("btnModeOne").classList.remove("active");
+      render();
+    });
+
+    buildSidebar();
+    render();
+  </script>
+</body>
+</html>

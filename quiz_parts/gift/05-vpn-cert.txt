@@ -1,0 +1,71 @@
+::IPsec peer::
+Що налаштовує `/ip/ipsec peer`? {
+=віддалений IPsec peer: address, exchange mode, profile
+~лише Wi-Fi пароль і SSID
+~DHCP lease для VPN-клієнтів
+#### Peer описує віддалену сторону VPN-тунелю. Діагностика: `/ip/ipsec peer print detail`.
+}
+
+::IPsec policy::
+Для чого потрібен `/ip/ipsec policy`? {
+=визначає, який трафік шифрувати між якими subnet/IP
+~зберігає системні логи IPsec
+~створює DNS-записи для VPN
+#### Policy-based VPN: policy задає селектори трафіку (src/dst). Неправильна policy — тунель є, але трафік не ходить.
+}
+
+::installed-sa::
+Що показує `/ip/ipsec installed-sa print`? {
+=встановлені Security Associations — чи реально працює IPsec tunnel
+~список усіх користувачів роутера
+~конфігурацію DHCP-сервера
+#### SA підтверджують, що Phase 2/Child SA піднялись. Якщо peer active, а SA немає — проблема в policy/proposal/identity.
+}
+
+::active-peers::
+Навіщо дивитися `/ip/ipsec active-peers print`? {
+=перевірити, хто зараз підключений і чи встановився IKE
+~експортувати сертифікати на USB
+~скинути лічильники ethernet-портів
+#### Active peers показують стан IKE-фази. Корисно разом із `installed-sa` і `/log print where topics~"ipsec"`.
+}
+
+::IPsec identity::
+Що задає `/ip/ipsec identity`? {
+=метод автентифікації peer: PSK, certificate, policy template group
+~MAC-адреси Wi-Fi клієнтів
+~швидкість WAN-каналу
+#### Identity зв'язує peer з способом автентифікації. Помилка тут — типова причина failed IKE negotiation.
+}
+
+::Сертифікати — перегляд::
+Як перевірити наявність і статус сертифікатів на роутері? {
+=/certificate print detail
+~/ip certificate print
+~/system certificate list
+#### `/certificate print detail` показує імена, термін дії, fingerprint. Фільтр: `/certificate print where name~"vpn"`.
+}
+
+::Підпис сертифіката::
+Що робить `/certificate sign` на MikroTik? {
+=підписує сертифікат локальним CA на самому роутері
+~видаляє прострочений сертифікат
+~імпортує CRL з інтернету
+#### MikroTik може виступати CA і підписувати server/client certificates. Також є `sign-certificate-request` для зовнішніх CSR.
+}
+
+::Ризик export-certificate::
+Чому `/certificate export-certificate` потребує особливої обережності? {
+=може експортувати приватний ключ — це секрет, не просто файл
+~працює лише з системними логами
+~автоматично вимикає всі VPN
+#### Експорт з приватним ключем — критичний секрет. Зберігайте з passphrase і не передавайте незахищеним каналом.
+}
+
+::Небезпечні IPsec-зміни::
+Яка зміни може «покласти» VPN і відрізати remote access? {
+=/ip/ipsec policy remove
+~/ip/ipsec statistics print
+~/ip/ipsec active-peers print
+#### `policy remove`, `peer remove`, `identity remove`, `profile set`, `proposal set` — високий ризик. Перед змінами: safe-mode, backup, export.
+}
