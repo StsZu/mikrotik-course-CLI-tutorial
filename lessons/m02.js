@@ -31,9 +31,9 @@ window.CLI_COURSE.modules.push({
           intro: "<p>Safe Mode — режим сесії. На нашому роутері його вмикають двома способами: командою <code>/safe-mode</code> з кореневого меню або клавішами <span class=\"kbd\">Ctrl</span>+<span class=\"kbd\">X</span> (<span class=\"kbd\">F4</span>). Результат однаковий.</p>",
           commands: [
             { cmd: "/safe-mode", explain: "Увімкнути Safe Mode командою з кореневого меню (у <code>/</code> нашого роутера є пункт <code>safe-mode</code>). Вийти й зберегти зміни — <span class=\"kbd\">Ctrl</span>+<span class=\"kbd\">X</span> (у тренажері повторний <code>/safe-mode</code> теж перемикає режим). У старіших версіях RouterOS пункту може не бути — тоді лише клавіші.", output: "[Safe Mode taken]", risk: "low" },
-            { cmd: "Ctrl+X", explain: "Увімкнути Safe Mode (або <span class=\"kbd\">F4</span>). Роутер відповідає <code>[Safe Mode taken]</code>, запрошення стає <code>[Stas@RB4011] &lt;SAFE&gt;</code>.", output: "[Safe Mode taken]\n[Stas@RB4011] <SAFE>", risk: "low" },
-            { cmd: "Ctrl+X (ще раз)", explain: "Вийти з Safe Mode і <strong>зберегти</strong> зроблені зміни. Якщо ж зв'язок обірвався — через тайм-аут (до ~9 хв) зміни відкотяться самі.", risk: "medium" },
-            { cmd: "Ctrl+D", explain: "Вийти з сесії, <strong>скасувавши</strong> всі зміни Safe Mode. А от <code>/quit</code> зміни не скасовує.", risk: "medium" }
+            { cmd: "Ctrl+X", outsideTrainer: true, explain: "Увімкнути Safe Mode (або <span class=\"kbd\">F4</span>). Роутер відповідає <code>[Safe Mode taken]</code>, запрошення стає <code>[Stas@RB4011] &lt;SAFE&gt;</code>.", output: "[Safe Mode taken]\n[Stas@RB4011] <SAFE>", risk: "low" },
+            { cmd: "Ctrl+X (ще раз)", outsideTrainer: true, explain: "Вийти з Safe Mode і <strong>зберегти</strong> зроблені зміни. Якщо ж зв'язок обірвався — через тайм-аут (до ~9 хв) зміни відкотяться самі.", risk: "medium" },
+            { cmd: "Ctrl+D", outsideTrainer: true, explain: "Вийти з сесії, <strong>скасувавши</strong> всі зміни Safe Mode. А от <code>/quit</code> зміни не скасовує.", risk: "medium" }
           ] },
         { type: "terminal", title: "Спробуй: увімкни Safe Mode",
           task: "Перед зміною firewall увімкни Safe Mode **командою**, а не клавішами.",
@@ -47,16 +47,16 @@ window.CLI_COURSE.modules.push({
         { type: "callout", variant: "warning", title: "Межі Safe Mode",
           body: "<p>Історія Safe Mode тримає до 100 останніх дій: якщо змін забагато, режим вимкнеться сам і нічого не відкотить. Працюй малими кроками.</p><p>Safe Mode не замінює бекап: він не допоможе, якщо ти сам вийшов і зберіг невдалу зміну.</p>" },
         { type: "summary", title: "Підсумок",
-          points: ["`/export file=before-change` — читабельна копія `.rsc`, без паролів користувачів і ключів.", "`/system backup save name=before-change` — бінарна копія для цього ж роутера; без `password=` не шифрується.", "Забирай обидва файли з роутера на комп'ютер.", "Safe Mode — Ctrl+X (або F4) перед змінами; повторний Ctrl+X зберігає, обрив відкочує.", "Ctrl+D скасовує зміни Safe Mode, `/quit` — ні."] }
+          points: ["`/export file=before-change` — читабельна копія `.rsc`, без паролів користувачів і ключів.", "`/system backup save name=before-change` — бінарна копія для цього ж роутера; без `password=` не шифрується.", "Забирай обидва файли з роутера на комп'ютер.", "Safe Mode — `/safe-mode` або Ctrl+X (F4) перед змінами; повторний Ctrl+X зберігає, обрив відкочує.", "Ctrl+D скасовує зміни Safe Mode, `/quit` — ні."] }
       ],
       glossary: [
         { term: "Export (.rsc)", def: "Текстовий файл команд, що відтворюють конфігурацію; `/export file=…`." },
         { term: "Backup (.backup)", def: "Бінарний знімок конфігурації для відновлення на тому самому пристрої." },
-        { term: "Safe Mode", def: "Режим сесії (Ctrl+X або F4), у якому зміни відкочуються при обриві зв'язку." },
+        { term: "Safe Mode", def: "Режим сесії (команда `/safe-mode`, Ctrl+X або F4), у якому зміни відкочуються при обриві зв'язку." },
         { term: "Self-lockout", def: "Ситуація, коли власна зміна відрізала тобі доступ до роутера." }
       ],
       quiz: [
-        { question: "Як увімкнути Safe Mode в терміналі RouterOS?", options: ["Клавішами Ctrl+X (або F4)", "Командою меню в `/system`", "Кнопкою Reset на роутері"], correct: 0, feedback: "Safe Mode — режим сесії, а не пункт меню. У WinBox для цього є кнопка Safe Mode." },
+        { question: "Як увімкнути Safe Mode в терміналі RouterOS?", options: ["Командою `/safe-mode` з кореневого меню або клавішами Ctrl+X (F4)", "Командою `/system backup save`", "Кнопкою Reset на роутері"], correct: 0, feedback: "На нашому роутері є пункт кореневого меню `/safe-mode`; клавіші Ctrl+X або F4 роблять те саме. У WinBox для цього є кнопка Safe Mode." },
         { question: "Що відбудеться зі змінами Safe Mode, якщо Wi‑Fi ноутбука зник посеред роботи?", options: ["Залишаться на роутері", "Роутер перезавантажиться", "Після тайм-ауту сесії роутер їх відкотить"], correct: 2, feedback: "Саме для цього режим і існує: обрив — сигнал, що щось пішло не так." },
         { question: "Чим `/export` відрізняється від `/system backup save`?", options: ["Нічим", "Export — текст, який можна читати й застосувати частинами; backup — бінарний знімок для того самого роутера", "Backup — текстовий, export — бінарний"], correct: 1, feedback: "Добра звичка — робити обидва перед серйозними змінами." },
         { question: "Чи можна пересилати файл `.backup`, збережений без пароля, у загальний чат?", options: ["Ні: у ньому повна конфігурація, файл не зашифрований — зберігай як секрет", "Так, він зашифрований автоматично", "Так, у ньому лише назви інтерфейсів"], correct: 0, feedback: "Починаючи з RouterOS 6.43, без `password=` бекап не шифрується." },

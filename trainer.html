@@ -151,7 +151,7 @@
       <p>
         Емуляція RouterOS 7 без справжнього роутера: <code>[Stas@RB4011]</code>, LAN <code>10.0.0.0/24</code>, роутер <code>10.0.0.254</code>.
         Команда зараховується лише в точному вигляді (регістр не важливий; <code>/ip/ipsec</code> = <code>/ip ipsec</code>).
-        <kbd>Ctrl</kbd>+<kbd>X</kbd> або <kbd>F4</kbd> — Safe Mode · <kbd>↑</kbd>/<kbd>↓</kbd> — історія · <kbd>Tab</kbd> — доповнення зі списку.
+        <kbd>Ctrl</kbd>+<kbd>X</kbd> або <kbd>F4</kbd> (чи команда <code>/safe-mode</code>) — Safe Mode · <kbd>Ctrl</kbd>+<kbd>D</kbd> на порожньому рядку — вихід зі скасуванням змін Safe Mode · <kbd>↑</kbd>/<kbd>↓</kbd> — історія · <kbd>Tab</kbd> — доповнення зі списку.
       </p>
     </header>
     <div class="layout">
@@ -331,9 +331,27 @@ function allCommands() {
   MODULE_LIST.forEach(m => m.commands.forEach(c => { if (!seen.has(c[0])) { seen.add(c[0]); out.push(c[0]); } }));
   return out;
 }
-window.TRAINER = { commands: allCommands, matches: matches };
+// Сухий прогін: та сама emulate(), але без виводу й без змін стану (DRY перевіряється перед кожною мутацією).
+let DRY = false, LAST_KIND = "ok";
+function recognizes(cmd) {
+  if (!String(cmd || "").trim()) return false;
+  const prev = DRY; DRY = true; LAST_KIND = "ok";
+  try { emulate(String(cmd).trim()); } finally { DRY = prev; }
+  return LAST_KIND !== "unknown" && LAST_KIND !== "unsupported";
+}
+window.TRAINER = { commands: allCommands, matches: matches, recognizes: recognizes };
 
 /* ---------- стан роутера (емуляція) ---------- */
+const FILTER_DEFAULT = [
+  ["defconf: accept established,related,untracked", { chain: "input", action: "accept", "connection-state": "established,related,untracked" }],
+  ["defconf: drop invalid", { chain: "input", action: "drop", "connection-state": "invalid" }],
+  ["defconf: accept ICMP", { chain: "input", action: "accept", protocol: "icmp" }],
+  ["defconf: drop all not coming from LAN", { chain: "input", action: "drop", "in-interface-list": "!LAN" }],
+  ["defconf: fasttrack", { chain: "forward", action: "fasttrack-connection", "connection-state": "established,related", "hw-offload": "yes" }],
+  ["defconf: accept established,related, untracked", { chain: "forward", action: "accept", "connection-state": "established,related,untracked" }],
+  ["defconf: drop invalid", { chain: "forward", action: "drop", "connection-state": "invalid" }],
+  ["defconf: drop all from WAN not DSTNATed", { chain: "forward", action: "drop", "connection-state": "new", "connection-nat-state": "!dstnat", "in-interface-list": "WAN" }]
+];
 const ROUTER = {};
 function initRouter() {
   ROUTER.identity = "RB4011";
@@ -355,6 +373,8 @@ function initRouter() {
     { address: "198.51.100.23/24", network: "198.51.100.0", interface: "ether1", dynamic: true },
     { address: "10.0.20.1/24", network: "10.0.20.0", interface: "vlan20-iot", dynamic: false }
   ];
+  ROUTER.filter = FILTER_DEFAULT.map(p => ({ comment: p[0], f: Object.assign({}, p[1]), disabled: false }));
+  ROUTER.bridgePorts = [["ether2", "H"], ["ether3", "H"], ["ether4", "IH"], ["wifi1", ""]].map(p => ({ iface: p[0], flags: p[1] }));
   ROUTER.files = [
     { name: "skins", type: "directory", size: "" },
     { name: "pub", type: "directory", size: "" }
@@ -412,14 +432,14 @@ function kv(pairs) {
 const MENUS = {
   "interface": () => ({ flags: "X - DISABLED; R - RUNNING; S - SLAVE", cols: [{ h: "NAME", k: "name" }, { h: "TYPE", k: "type" }, { h: "ACTUAL-MTU", k: "actual-mtu", r: 1 }, { h: "L2MTU", k: "l2mtu", r: 1 }],
     rows: ROUTER.ifaces.map(i => ({ flags: (i.disabled ? "X" : (i.running ? "R" : "")) + (i.slave ? "S" : ""), comment: i.comment,
-      f: { name: i.name, type: i.type, "actual-mtu": i.mtu, "l2mtu": i.l2, _disabled: i.disabled ? "yes" : "no", _running: (i.running && !i.disabled) ? "yes" : "no" } })) }),
+      f: { name: i.name, type: i.type, "actual-mtu": i.mtu, "l2mtu": i.l2, _disabled: i.disabled ? "yes" : "no", _running: (i.running && !i.disabled) ? "yes" : "no", _comment: i.comment || "" } })) }),
   "interface ethernet": () => ({ flags: "X - DISABLED; R - RUNNING; S - SLAVE", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu", r: 1 }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "ARP", k: "arp" }],
     rows: ROUTER.ifaces.filter(i => i.type === "ether").map((i, n) => ({ flags: (i.disabled ? "X" : (i.running ? "R" : "")) + (i.slave ? "S" : ""), comment: i.comment,
       f: { name: i.name, mtu: i.mtu, "mac-address": "48:A9:8A:10:20:0" + (n + 1), arp: "enabled", _disabled: i.disabled ? "yes" : "no" } })) }),
   "interface bridge": () => ({ flags: "X - DISABLED; R - RUNNING", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu" }, { h: "ACTUAL-MTU", k: "actual-mtu", r: 1 }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "PROTOCOL-MODE", k: "protocol-mode" }],
     rows: [{ flags: "R", comment: "defconf", f: { name: "bridge", mtu: "auto", "actual-mtu": 1500, "mac-address": "48:A9:8A:10:20:02", "protocol-mode": "rstp", "vlan-filtering": "no" } }] }),
   "interface bridge port": () => ({ flags: "I - INACTIVE; H - HW-OFFLOAD", cols: [{ h: "INTERFACE", k: "interface" }, { h: "BRIDGE", k: "bridge" }, { h: "HW", k: "hw" }, { h: "PVID", k: "pvid", r: 1 }],
-    rows: [["ether2", "H"], ["ether3", "H"], ["ether4", "IH"], ["wifi1", ""]].map(p => ({ flags: p[1], f: { interface: p[0], bridge: "bridge", hw: p[0].startsWith("ether") ? "yes" : "", pvid: 1 } })) }),
+    rows: ROUTER.bridgePorts.map(p => ({ flags: p.flags, f: { interface: p.iface, bridge: "bridge", hw: p.iface.startsWith("ether") ? "yes" : "", pvid: 1 } })) }),
   "interface vlan": () => ({ flags: "X - DISABLED; R - RUNNING", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu", r: 1 }, { h: "ARP", k: "arp" }, { h: "VLAN-ID", k: "vlan-id", r: 1 }, { h: "INTERFACE", k: "interface" }],
     rows: [{ flags: "R", f: { name: "vlan20-iot", mtu: 1500, arp: "enabled", "vlan-id": 20, interface: "bridge" } }] }),
   "interface list": () => ({ flags: "* - BUILTIN", cols: [{ h: "NAME", k: "name" }, { h: "INCLUDE", k: "include" }],
@@ -436,14 +456,14 @@ const MENUS = {
       { f: { name: "stas-phone", interface: "wg-home", "public-key": "u7Yc…Lk8= (скорочено)", "allowed-address": "10.0.9.3/32" } }] }),
   "ip address": () => ({ flags: "D - DYNAMIC", cols: [{ h: "ADDRESS", k: "address" }, { h: "NETWORK", k: "network" }, { h: "INTERFACE", k: "interface" }],
     rows: ROUTER.addresses.map(a => ({ flags: a.dynamic ? "D" : "", comment: a.comment, f: { address: a.address, network: a.network, interface: a.interface } })) }),
-  "ip route": () => ({ flags: "D - DYNAMIC; A - ACTIVE; c - CONNECT, s - STATIC, d - DHCP", cols: [{ h: "DST-ADDRESS", k: "dst-address" }, { h: "GATEWAY", k: "gateway" }, { h: "DISTANCE", k: "distance", r: 1 }],
-    rows: [["DAd", "0.0.0.0/0", "198.51.100.1", 1]].concat(ROUTER.addresses.map(a => ["DAc", a.network + "/" + a.address.split("/")[1], a.interface, 0]))
+  "ip route": () => ({ flags: "D - DYNAMIC; I - INACTIVE, A - ACTIVE; c - CONNECT, s - STATIC, d - DHCP", cols: [{ h: "DST-ADDRESS", k: "dst-address" }, { h: "GATEWAY", k: "gateway" }, { h: "DISTANCE", k: "distance", r: 1 }],
+    rows: [["DAd", "0.0.0.0/0", "198.51.100.1", 1]].concat(ROUTER.addresses.map(a => { const i = ifaceByName(a.interface); return [(i && !i.disabled && i.running) ? "DAc" : "DIc", a.network + "/" + a.address.split("/")[1], a.interface, 0]; }))
       .map(p => ({ flags: p[0], f: { "dst-address": p[1], gateway: p[2], distance: p[3] } })) }),
   "ip arp": () => ({ flags: "D - DYNAMIC; C - COMPLETE", cols: [{ h: "ADDRESS", k: "address" }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "INTERFACE", k: "interface" }],
     rows: [["10.0.0.42", "F0:18:98:3A:4B:42", "bridge"], ["10.0.0.50", "3C:22:FB:10:AA:50", "bridge"], ["10.0.0.2", "48:A9:8A:77:10:02", "bridge"], ["198.51.100.1", "00:1B:21:9C:00:01", "ether1"]]
       .map(p => ({ flags: "DC", f: { address: p[0], "mac-address": p[1], interface: p[2] } })) }),
   "ip neighbor": () => ({ flags: "", cols: [{ h: "INTERFACE", k: "interface" }, { h: "ADDRESS", k: "address" }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "IDENTITY", k: "identity" }, { h: "PLATFORM", k: "platform" }, { h: "VERSION", k: "version" }, { h: "DISCOVERED-BY", k: "discovered-by" }],
-    rows: [{ f: { interface: "ether2,bridge", address: "10.0.0.2", "mac-address": "48:A9:8A:77:10:02", identity: "hAP-ax2", platform: "MikroTik", version: "7.19.4 (stable)", "discovered-by": "mndp,lldp" } },
+    rows: [{ f: { interface: "ether2,bridge", address: "10.0.0.2", "mac-address": "48:A9:8A:77:10:02", identity: "hAP-ax2", platform: "MikroTik", version: "7.24.4 (stable)", "discovered-by": "mndp,lldp" } },
       { f: { interface: "ether3,bridge", address: "10.0.0.3", "mac-address": "00:1E:58:40:10:03", identity: "office-switch", platform: "", version: "", "discovered-by": "lldp" } }] }),
   "ip dhcp-client": () => ({ flags: "X - DISABLED; I - INVALID", cols: [{ h: "INTERFACE", k: "interface" }, { h: "USE-PEER-DNS", k: "use-peer-dns" }, { h: "ADD-DEFAULT-ROUTE", k: "add-default-route" }, { h: "STATUS", k: "status" }, { h: "ADDRESS", k: "address" }],
     rows: [{ comment: "defconf", f: { interface: "ether1", "use-peer-dns": "yes", "add-default-route": "yes", status: "bound", address: "198.51.100.23/24" } }] }),
@@ -451,16 +471,7 @@ const MENUS = {
     rows: [["D", "10.0.0.42", "F0:18:98:3A:4B:42", "MacBook-Pro"], ["D", "10.0.0.50", "3C:22:FB:10:AA:50", "iPhone"], ["", "10.0.0.10", "00:80:77:21:10:10", "printer"]]
       .map(p => ({ flags: p[0], f: { address: p[1], "mac-address": p[2], "host-name": p[3], server: "defconf", status: "bound" } })) }),
   "ip firewall filter": () => ({ flags: "X - DISABLED, I - INVALID; D - DYNAMIC", props: true,
-    rows: [
-      ["defconf: accept established,related,untracked", { chain: "input", action: "accept", "connection-state": "established,related,untracked" }],
-      ["defconf: drop invalid", { chain: "input", action: "drop", "connection-state": "invalid" }],
-      ["defconf: accept ICMP", { chain: "input", action: "accept", protocol: "icmp" }],
-      ["defconf: drop all not coming from LAN", { chain: "input", action: "drop", "in-interface-list": "!LAN" }],
-      ["defconf: fasttrack", { chain: "forward", action: "fasttrack-connection", "connection-state": "established,related", "hw-offload": "yes" }],
-      ["defconf: accept established,related, untracked", { chain: "forward", action: "accept", "connection-state": "established,related,untracked" }],
-      ["defconf: drop invalid", { chain: "forward", action: "drop", "connection-state": "invalid" }],
-      ["defconf: drop all from WAN not DSTNATed", { chain: "forward", action: "drop", "connection-state": "new", "connection-nat-state": "!dstnat", "in-interface-list": "WAN" }]
-    ].map(p => ({ comment: p[0], f: p[1] })) }),
+    rows: ROUTER.filter.map(r => ({ flags: r.disabled ? "X" : "", comment: r.comment, f: Object.assign({}, r.f, { _disabled: r.disabled ? "yes" : "no", _comment: r.comment }) })) }),
   "ip firewall nat": () => ({ flags: "X - DISABLED, I - INVALID; D - DYNAMIC", props: true,
     rows: [{ comment: "defconf: masquerade", f: { chain: "srcnat", action: "masquerade", "out-interface-list": "WAN", "ipsec-policy": "out,none" } }] }),
   "ip firewall address-list": () => ({ flags: "X - DISABLED; D - DYNAMIC", cols: [{ h: "LIST", k: "list" }, { h: "ADDRESS", k: "address" }, { h: "CREATION-TIME", k: "creation-time" }],
@@ -497,8 +508,8 @@ const MENUS = {
       .map(p => ({ flags: p[0], f: { name: p[1], "common-name": p[2], "days-valid": p[3], "invalid-after": p[4] + " 10:00:00", fingerprint: "5f1c…a93e (скорочено)" } })) })
 };
 const KV_MENUS = {
-  "system resource": () => [["uptime", "3d12h4m10s"], ["version", "7.19.4 (stable)"], ["free-memory", "892.4MiB"], ["total-memory", "1024.0MiB"], ["cpu", "ARMv7"], ["cpu-count", "4"], ["cpu-frequency", "1400MHz"], ["cpu-load", "4%"], ["free-hdd-space", "412.8MiB"], ["total-hdd-space", "512.0MiB"], ["architecture-name", "arm"], ["board-name", "RB4011iGS+5HacQ2HnD"], ["platform", "MikroTik"]],
-  "system routerboard": () => [["routerboard", "yes"], ["model", "RB4011iGS+5HacQ2HnD"], ["serial-number", "D4E60F3A9C21"], ["firmware-type", "al2"], ["factory-firmware", "6.44.6"], ["current-firmware", "7.19.4"], ["upgrade-firmware", "7.19.4"]],
+  "system resource": () => [["uptime", "3d12h4m10s"], ["version", "7.24.4 (stable)"], ["free-memory", "892.4MiB"], ["total-memory", "1024.0MiB"], ["cpu", "ARMv7"], ["cpu-count", "4"], ["cpu-frequency", "1400MHz"], ["cpu-load", "4%"], ["free-hdd-space", "412.8MiB"], ["total-hdd-space", "512.0MiB"], ["architecture-name", "arm"], ["board-name", "RB4011iGS+5HacQ2HnD"], ["platform", "MikroTik"]],
+  "system routerboard": () => [["routerboard", "yes"], ["model", "RB4011iGS+5HacQ2HnD"], ["serial-number", "D4E60F3A9C21"], ["firmware-type", "al2"], ["factory-firmware", "6.44.6"], ["current-firmware", "7.24.4"], ["upgrade-firmware", "7.24.4"]],
   "system clock": () => [["time", "14:05:12"], ["date", "2026-09-18"], ["time-zone-autodetect", "yes"], ["time-zone-name", "Europe/Kyiv"], ["gmt-offset", "+03:00"], ["dst-active", "yes"]],
   "system identity": () => [["name", ROUTER.identity]],
   "ip dns": () => [["servers", ROUTER.dns], ["dynamic-servers", "198.51.100.53"], ["use-doh-server", ""], ["allow-remote-requests", "yes"], ["cache-size", "2048KiB"], ["cache-used", "112KiB"]],
@@ -515,7 +526,7 @@ const LOG = [
   ["2026-09-18 13:59:30", "system,info", "dns changed by ssh:Stas@10.0.0.42 (/ip dns set servers=1.1.1.1)"]
 ];
 const SUBMENUS = {
-  "": ["certificate", "file", "interface", "ip", "ipv6", "log", "routing", "system", "tool", "user", "export", "import", "ping", "quit", "redo", "undo"],
+  "": ["certificate", "file", "interface", "ip", "ipv6", "log", "routing", "system", "tool", "user", "export", "import", "ping", "quit", "redo", "safe-mode", "undo"],
   "ip": ["address", "arp", "dhcp-client", "dhcp-server", "dns", "firewall", "ipsec", "neighbor", "route", "service", "ssh"],
   "interface": ["bridge", "ethernet", "list", "vlan", "wifi", "wireguard", "print", "set", "enable", "disable", "monitor-traffic"],
   "system": ["backup", "clock", "history", "identity", "package", "resource", "routerboard", "reboot", "reset-configuration"],
@@ -576,8 +587,9 @@ function beginView(cmd) {
   viewChunks = [];
   if (cmd != null) viewChunks.push(`<div class="line-user">${esc(promptText())} ${esc(cmd)}</div>`);
 }
-function print(html) { viewChunks.push(html); }
+function print(html) { if (DRY) return; viewChunks.push(html); }
 function printResult(title, body, type = "ok", hint = null) {
+  if (DRY) return;
   const cls = { warn: "result-box warn", purple: "result-box purple", danger: "result-box danger" }[type] || "result-box";
   const hintHtml = hint ? `<div class="line-uk-hint">${esc(hint)}</div>` : "";
   viewChunks.push(`<div class="${cls}"><div class="result-title">${esc(title)}</div>${body}${hintHtml}</div>`);
@@ -603,6 +615,7 @@ const DANGER = [
   [c => /^\/certificate export-certificate/.test(c), "Може вивантажити приватний ключ — це секрет, а не просто файл.", "Експортуй з надійною export-passphrase, передавай лише захищеним каналом і видали файл з роутера після копіювання."],
   [c => /^\/ip service (set|disable|enable)/.test(c), "Зміна сервісів керування (ssh, winbox) може відрізати тобі доступ до роутера.", "Safe Mode (Ctrl+X), перевір, через який сервіс ти зараз підключений (`/user active print`), змінюй інший."],
   [c => /^\/user (set|add|disable)/.test(c), "Зміна користувачів і прав може залишити тебе без доступу або дати зайвий доступ іншим.", "Спершу створи й перевір новий обліковий запис в окремій сесії, лише потім змінюй старий."],
+  [c => /^\/ip ipsec (peer|policy|identity|profile|proposal) (disable|set)( |$)/.test(c), "Вимкнення чи зміна IPsec-піра/політики обриває тунель: віддалена мережа стане недоступною, а якщо ти керуєш роутером через цей VPN — втратиш доступ.", "Спершу `/export file=before-ipsec`, Safe Mode (Ctrl+X) і доступ до роутера не через цей тунель."],
   [c => /^\/system package (disable|uninstall|downgrade)/.test(c), "Вимкнення/видалення пакета прибирає функції (Wi‑Fi, контейнери) після перезавантаження.", "Перевір `/system package print`, зроби бекап; видаляй лише те, що точно не використовується."]
 ];
 
@@ -613,6 +626,8 @@ function parse(c) {
   return { toks, path: path.join(" "), verb: vi < 0 ? null : toks[vi], args: vi < 0 ? [] : toks.slice(vi + 1) };
 }
 function whereFilter(rows, expr) {
+  const b = expr.match(/^(!)?([\w-]+)$/);
+  if (b) expr = b[2] + "=" + (b[1] ? "no" : "yes");
   const m = expr.match(/^([\w-]+)(!=|=|~)"?([^"]*)"?$/);
   if (!m) return null;
   const key = m[1], op = m[2], val = m[3].toLowerCase();
@@ -657,7 +672,7 @@ function doPrint(path, args, raw) {
     return { text: table("U - UNDOABLE, R - REDOABLE, F - FLOATING-UNDO", [{ h: "ACTION", k: "action" }, { h: "BY", k: "by" }, { h: "POLICY", k: "policy" }], rows) };
   }
   if (path === "system package") {
-    const rows = [["routeros", "12.9MiB"], ["wifi-qcom-ac", "3.3MiB"]].map(p => ({ f: { name: p[0], version: "7.19.4", "build-time": "2026-08-20 09:14:22", size: p[1] } }));
+    const rows = [["routeros", "12.9MiB"], ["wifi-qcom-ac", "3.3MiB"]].map(p => ({ f: { name: p[0], version: "7.24.4", "build-time": "2026-08-20 09:14:22", size: p[1] } }));
     return { text: table("", [{ h: "NAME", k: "name" }, { h: "VERSION", k: "version" }, { h: "BUILD-TIME", k: "build-time" }, { h: "SIZE", k: "size", r: 1 }], rows) };
   }
   const def = MENUS[path];
@@ -674,6 +689,7 @@ function doPrint(path, args, raw) {
 }
 
 function unknown(raw, c, hint) {
+  LAST_KIND = "unknown";
   const toks = c.slice(1).split(" ").filter(Boolean);
   const extra = ["log", "file", "system history", "system package", "system backup", "tool ping", "tool traceroute", "tool torch", "tool profile"];
   let bad = toks[toks.length - 1] || "";
@@ -693,6 +709,7 @@ function emulate(raw) {
   const c = canonical(raw);
   const hint = UK_HINTS[allCommands().find(x => matches(raw, x))] || null;
   if (c === "/safe-mode") {
+    if (DRY) return "ok";
     applySafeToggle();
     return "ok";
   }
@@ -702,6 +719,7 @@ function emulate(raw) {
   }
   for (const [test, what, safer] of DANGER) {
     if (test(c)) {
+      LAST_KIND = "danger";
       printResult("Небезпечна команда — тренажер її не виконує", `<span class="line-err">${esc(what)}</span><br><span class="line-ok">Безпечніше: ${esc(safer)}</span>`, "danger");
       return false;
     }
@@ -715,22 +733,25 @@ function emulate(raw) {
     if (p.args.length && !f && !p.args.every(a => ["terse", "verbose", "compact", "show-sensitive"].includes(a))) return unknown(raw, c);
     if (f) {
       const name = f.slice(5).replace(/"/g, "").replace(/\.rsc$/, "") + ".rsc";
+      if (DRY) return "ok";
       if (!ROUTER.files.find(x => x.name === name)) ROUTER.files.push({ name, type: ".rsc file", size: "5.1KiB", date: "2026-09-18 14:05:40" });
       printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="line-ok">Файл ${esc(name)} з'явився в /file print</span>`, "ok", hint || "Текстовий експорт конфігурації. Паролі користувачів і ключі в нього не потрапляють.");
     } else {
-      printResult(raw, pre(`# 2026-09-18 14:05:40 by RouterOS 7.19.4\n# model = RB4011iGS+5HacQ2HnD\n/interface bridge\nadd admin-mac=48:A9:8A:10:20:02 auto-mac=no comment=defconf name=bridge\n/ip address\nadd address=10.0.0.254/24 comment=defconf interface=bridge network=10.0.0.0\n/ip dns\nset allow-remote-requests=yes servers=${ROUTER.dns}\n/system identity\nset name=${ROUTER.identity}\n# … (скорочено)`), "ok", "Без file= експорт друкується на екран — зручно, щоб швидко подивитися конфігурацію.");
+      printResult(raw, pre(`# 2026-09-18 14:05:40 by RouterOS 7.24.4\n# model = RB4011iGS+5HacQ2HnD\n/interface bridge\nadd admin-mac=48:A9:8A:10:20:02 auto-mac=no comment=defconf name=bridge\n/ip address\nadd address=10.0.0.254/24 comment=defconf interface=bridge network=10.0.0.0\n/ip dns\nset allow-remote-requests=yes servers=${ROUTER.dns}\n/system identity\nset name=${ROUTER.identity}\n# … (скорочено)`), "ok", "Без file= експорт друкується на екран — зручно, щоб швидко подивитися конфігурацію.");
     }
     return "ok";
   }
   if (t[0] === "system" && t[1] === "backup" && p.verb === "save") {
     const n = p.args.find(a => a.startsWith("name="));
     const name = (n ? n.slice(5).replace(/"/g, "").replace(/\.backup$/, "") : "RB4011-20260918-1405") + ".backup";
+    if (DRY) return "ok";
     if (!ROUTER.files.find(x => x.name === name)) ROUTER.files.push({ name, type: "backup", size: "48.3KiB", date: "2026-09-18 14:05:52" });
     printResult(raw, pre("Configuration backup saved"), "ok", hint || "Бінарний бекап — для відновлення на цьому ж роутері. Без password= файл не шифрується: зберігай його як секрет.");
     return "ok";
   }
   if (t[0] === "undo" || t[0] === "redo") {
     if (t.length > 1) return unknown(raw, c);
+    if (DRY) return "ok";
     const isUndo = t[0] === "undo";
     const list = ROUTER.changes.filter(ch => ch.state === (isUndo ? "U" : "R"));
     const ch = isUndo ? list[list.length - 1] : list[0];
@@ -783,31 +804,100 @@ function emulate(raw) {
     return unknown(raw, c);
   }
   if (t[0] === "quit" && t.length === 1) {
-    printResult(raw, pre("interrupted"), "warn", "На справжньому роутері сесія закрилась би. Увага: /quit не скасовує зміни Safe Mode, а Ctrl+D — скасовує. У тренажері можна продовжувати.");
+    if (DRY) return "ok";
+    const wasSafe = ROUTER.safe;
+    if (wasSafe) { ROUTER.safe = false; ROUTER.changes.forEach(ch => { ch.safe = false; }); updatePrompt(); }
+    printResult(raw, pre("interrupted"), "warn", (wasSafe ? "Safe Mode завершено, зміни збережено. " : "") + "На справжньому роутері сесія закрилась би. Увага: /quit не скасовує зміни Safe Mode, а Ctrl+D — скасовує. У тренажері можна продовжувати.");
     return "ok";
   }
 
   // зміни конфігурації, які емулятор підтримує
-  if (p.path === "interface" && (p.verb === "disable" || p.verb === "enable" || p.verb === "set")) {
-    let name = null, want = p.verb === "disable";
-    if (p.verb === "set") {
-      name = p.args[0]; const d = p.args.find(a => a.startsWith("disabled="));
-      if (!d || p.args.length !== 2) return unknown(raw, c, "Тренажер підтримує лише: /interface set ether5 disabled=yes|no");
-      want = d.slice(9) === "yes";
-    } else {
-      if (p.args.length !== 1) return unknown(raw, c);
-      name = p.args[0].replace("numbers=", "");
+  // Вибір об'єктів: ім'я, номер(и) з останнього print цієї сесії або [find умова].
+  const selectItems = (rows, spec, byName) => {
+    const fm = spec.match(/^\[find(?: (.+))?\]$/);
+    if (fm) return whereFilter(rows, fm[1] || "") || (fm[1] ? null : rows);
+    const out = [];
+    for (const part of spec.split(",")) {
+      const item = /^\d+$/.test(part) ? rows[+part] : (byName ? rows.find(r => r.f.name === part || r.f.interface === part) : null);
+      if (!item) return { missing: part };
+      out.push(item);
     }
-    const i = ifaceByName(name);
-    if (!i) { printResult(raw, pre(`no such item (line 1 column ${raw.toLowerCase().lastIndexOf(name) + 1})`, "line-err"), "warn", "Такого інтерфейсу немає. Подивись /interface print."); return false; }
-    const before = i.disabled;
-    i.disabled = want;
-    recordChange(`interface ${name} ${want ? "disabled" : "enabled"}`, () => { i.disabled = before; }, () => { i.disabled = want; });
-    let note = "";
-    if (want && ["ether1"].includes(name)) note = "ether1 — це WAN: роутер щойно втратив інтернет.";
-    if (want && ["bridge", "ether2"].includes(name)) note = "Ти підключений через bridge/ether2 — на справжньому роутері сесія б обірвалась (self-lockout). Ось навіщо Safe Mode.";
-    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="${want ? "line-warn" : "line-ok"}">${esc(name)}: ${want ? "вимкнено" : "увімкнено"}</span>` + (note ? `<br><span class="line-err">${esc(note)}</span>` : ""), want ? "warn" : "ok",
+    return out;
+  };
+  const noSuchItem = (name, tip) => { printResult(raw, pre(`no such item (line 1 column ${raw.toLowerCase().lastIndexOf(name) + 1})`, "line-err"), "warn", tip); return false; };
+  if (p.path === "interface" && (p.verb === "disable" || p.verb === "enable" || p.verb === "set")) {
+    const argStr = p.args.join(" ");
+    let spec, props = {};
+    if (p.verb === "set") {
+      spec = p.args[0] || "";
+      const rest = p.args.slice(1);
+      if (!spec || !rest.length) return unknown(raw, c, "Приклад: /interface set ether5 disabled=yes або comment=LAB");
+      for (const a of rest) {
+        const m = a.match(/^(disabled|comment)=(.*)$/);
+        if (!m) return unknown(raw, c, "Тренажер підтримує в /interface set лише disabled=yes|no і comment=…");
+        props[m[1]] = m[2].replace(/"/g, "");
+        if (m[1] === "comment") { const rm = raw.match(/comment=(?:"([^"]*)"|(\S*))/i); if (rm) props.comment = rm[1] !== undefined ? rm[1] : rm[2]; }
+      }
+      if (props.disabled !== undefined && !["yes", "no"].includes(props.disabled)) { printResult(raw, pre("value of disabled must be yes or no", "line-err"), "warn"); return false; }
+    } else {
+      spec = argStr.replace(/^numbers=/, "");
+      if (!spec) return unknown(raw, c, `Кого ${p.verb === "disable" ? "вимкнути" : "увімкнути"}? Приклад: /interface ${p.verb} ether5`);
+      props.disabled = p.verb === "disable" ? "yes" : "no";
+    }
+    const rows = ROUTER.ifaces.map(i => ({ i, f: { name: i.name, comment: i.comment || "", _disabled: i.disabled ? "yes" : "no" } }));
+    const sel = selectItems(rows, spec, true);
+    if (!sel) { LAST_KIND = "unsupported"; printResult(raw, pre("(емулятор не вміє таку умову find)", "line-warn"), "warn", "Приклад: [find comment=\"LAB\"]"); return false; }
+    if (sel.missing) return noSuchItem(sel.missing, "Такого інтерфейсу немає. Подивись /interface print.");
+    if (!sel.length) { printResult(raw, `<span class="line-muted">(умові не відповідає жоден інтерфейс — нічого не змінено; RouterOS при цьому мовчить)</span>`, "warn"); return "ok"; }
+    if (DRY) return "ok";
+    const notes = [];
+    sel.forEach(({ i }) => {
+      const before = { disabled: i.disabled, comment: i.comment };
+      const after = { disabled: props.disabled !== undefined ? props.disabled === "yes" : i.disabled, comment: props.comment !== undefined ? (props.comment || undefined) : i.comment };
+      Object.assign(i, after);
+      recordChange(`interface ${i.name} changed`, () => { Object.assign(i, before); }, () => { Object.assign(i, after); });
+      if (after.disabled && !before.disabled && i.name === "ether1") notes.push("ether1 — це WAN: роутер щойно втратив інтернет.");
+      if (after.disabled && !before.disabled && ["bridge", "ether2"].includes(i.name)) notes.push("Ти підключений через bridge/ether2 — на справжньому роутері сесія б обірвалась (self-lockout). Ось навіщо Safe Mode.");
+    });
+    const want = props.disabled === "yes";
+    const summary = sel.map(({ i }) => `${esc(i.name)}: ${i.disabled ? "вимкнено" : "увімкнено"}${i.comment ? " ;;; " + esc(i.comment) : ""}`).join("<br>");
+    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="${want ? "line-warn" : "line-ok"}">${summary}</span>` + notes.map(n => `<br><span class="line-err">${esc(n)}</span>`).join(""), want ? "warn" : "ok",
       hint || (ROUTER.safe ? "Safe Mode увімкнено: якщо зв'язок обірветься, ця зміна відкотиться." : "Зміна діє одразу. Перевір результат: /interface print."));
+    return "ok";
+  }
+  if (p.path === "ip firewall filter" && (p.verb === "disable" || p.verb === "enable")) {
+    const spec = p.args.join(" ").replace(/^numbers=/, "");
+    if (!spec) return unknown(raw, c, "Приклад: /ip firewall filter disable [find comment=\"test\"] або номер з print");
+    const rows = ROUTER.filter.map(r => ({ r, f: Object.assign({}, r.f, { comment: r.comment, _disabled: r.disabled ? "yes" : "no" }) }));
+    const sel = selectItems(rows, spec, false);
+    if (!sel) { LAST_KIND = "unsupported"; printResult(raw, pre("(емулятор не вміє таку умову find)", "line-warn"), "warn", "Приклад: [find comment=\"test\"]"); return false; }
+    if (sel.missing) return noSuchItem(sel.missing, "Правила з таким номером немає. Номери дає останній /ip firewall filter print у твоїй сесії.");
+    if (!sel.length) { printResult(raw, `<span class="line-muted">(умові не відповідає жодне правило — нічого не змінено; RouterOS при цьому мовчить)</span>`, "warn", "Перевір коментарі: /ip firewall filter print."); return "ok"; }
+    if (DRY) return "ok";
+    const want = p.verb === "disable";
+    sel.forEach(({ r }) => {
+      const before = r.disabled;
+      r.disabled = want;
+      recordChange(`filter rule ${want ? "disabled" : "enabled"}`, () => { r.disabled = before; }, () => { r.disabled = want; });
+    });
+    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br>` + sel.map(({ r }) => `<span class="${want ? "line-warn" : "line-ok"}">${want ? "X " : ""};;; ${esc(r.comment)}</span>`).join("<br>"), want ? "warn" : "ok",
+      hint || "Вимкнене правило лишається в списку з прапорцем X — його легко ввімкнути назад (enable) або скасувати через /undo.");
+    return "ok";
+  }
+  if (p.path === "interface bridge port" && p.verb === "add") {
+    const b = p.args.find(x => x.startsWith("bridge=")), f = p.args.find(x => x.startsWith("interface="));
+    if (!b || !f || p.args.length !== 2) return unknown(raw, c, "Приклад: /interface bridge port add bridge=bridge interface=ether5");
+    const br = b.slice(7), ifn = f.slice(10);
+    if (br !== "bridge") { printResult(raw, pre("input does not match any value of bridge", "line-err"), "warn", "Bridge на цьому роутері один — bridge."); return false; }
+    const i = ifaceByName(ifn);
+    if (!i || i.type === "bridge") { printResult(raw, pre("input does not match any value of interface", "line-err"), "warn", "Такого інтерфейсу немає. Подивись /interface print."); return false; }
+    if (ROUTER.bridgePorts.find(x => x.iface === ifn)) { printResult(raw, pre("failure: device already added as bridge port", "line-err"), "warn", "Цей порт уже в bridge — /interface bridge port print."); return false; }
+    if (DRY) return "ok";
+    const rec = { iface: ifn, flags: i.running && !i.disabled ? "H" : "IH" }, slaveBefore = i.slave;
+    ROUTER.bridgePorts.push(rec); i.slave = true;
+    recordChange(`bridge port ${ifn} added`, () => { ROUTER.bridgePorts = ROUTER.bridgePorts.filter(x => x !== rec); i.slave = slaveBefore; }, () => { ROUTER.bridgePorts.push(rec); i.slave = true; });
+    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="line-ok">${esc(ifn)} тепер у bridge — перевір /interface bridge port print</span>`, "ok",
+      hint || "Порт став частиною LAN: DHCP-сервер і правила для списку LAN тепер діють і на нього.");
     return "ok";
   }
   if (p.path === "ip address" && p.verb === "add") {
@@ -816,9 +906,12 @@ function emulate(raw) {
     const addr = a.slice(8), ifn = f.slice(10);
     if (!/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(addr)) { printResult(raw, pre("invalid value for argument address", "line-err"), "warn", "Формат: 10.0.1.1/24"); return false; }
     if (!ifaceByName(ifn)) { printResult(raw, pre(`input does not match any value of interface`, "line-err"), "warn", "Такого інтерфейсу немає. Подивись /interface print."); return false; }
+    if (DRY) return "ok";
     if (ROUTER.addresses.find(x => x.address === addr)) { printResult(raw, pre("failure: already have such address", "line-err"), "warn", "Така адреса вже є — /ip address print."); return false; }
     const oct = addr.split("/")[0].split(".").map(Number), bits = +addr.split("/")[1];
-    const net = bits === 24 ? `${oct[0]}.${oct[1]}.${oct[2]}.0` : addr.split("/")[0];
+    if (bits > 32 || oct.some(o => o > 255)) { printResult(raw, pre("invalid value for argument address", "line-err"), "warn", "Формат: 10.0.1.1/24"); return false; }
+    const ipn = ((oct[0] << 24) | (oct[1] << 16) | (oct[2] << 8) | oct[3]) >>> 0, mask = bits ? (0xFFFFFFFF << (32 - bits)) >>> 0 : 0, nn = (ipn & mask) >>> 0;
+    const net = [nn >>> 24, (nn >>> 16) & 255, (nn >>> 8) & 255, nn & 255].join(".");
     const rec = { address: addr, network: net, interface: ifn, dynamic: false };
     ROUTER.addresses.push(rec);
     recordChange(`address ${addr} added`, () => { ROUTER.addresses = ROUTER.addresses.filter(x => x !== rec); }, () => { ROUTER.addresses.push(rec); });
@@ -830,6 +923,7 @@ function emulate(raw) {
     if (!s || p.args.length !== 1) return unknown(raw, c, "Тренажер підтримує: /ip dns set servers=1.1.1.1,8.8.8.8");
     const val = s.slice(8).replace(/"/g, "");
     if (!/^[\d.,]+$/.test(val)) { printResult(raw, pre("invalid value for argument servers", "line-err"), "warn"); return false; }
+    if (DRY) return "ok";
     const before = ROUTER.dns;
     ROUTER.dns = val;
     recordChange("dns changed", () => { ROUTER.dns = before; }, () => { ROUTER.dns = val; });
@@ -843,14 +937,14 @@ function emulate(raw) {
     return "ok";
   }
   if (p.path === "certificate" && p.verb === "export" && !p.args.length) {
-    printResult(raw, pre(`# 2026-09-18 14:07:03 by RouterOS 7.19.4\n# model = RB4011iGS+5HacQ2HnD\n/certificate settings\nset crl-download=no crl-use=no`), "ok", hint);
+    printResult(raw, pre(`# 2026-09-18 14:07:03 by RouterOS 7.24.4\n# model = RB4011iGS+5HacQ2HnD\n/certificate settings\nset crl-download=no crl-use=no`), "ok", hint);
     return "ok";
   }
   if (p.verb === "print") {
     const r = doPrint(p.path, p.args, raw);
     if (r === null) return unknown(raw, c);
-    if (r.error) { printResult(raw, pre(r.error, "line-err"), "warn", "Такого параметра print тренажер не знає. Підтримуються: detail, where, follow, count-only."); return false; }
-    if (r.unsupported) { printResult(raw, pre("(емулятор не вміє такий фільтр)", "line-warn"), "warn", "Тренажер фільтрує лише прості умови: ключ=значення, ключ!=значення, ключ~\"текст\"."); return false; }
+    if (r.error) { LAST_KIND = "unknown"; printResult(raw, pre(r.error, "line-err"), "warn", "Такого параметра print тренажер не знає. Підтримуються: detail, where, follow, count-only."); return false; }
+    if (r.unsupported) { LAST_KIND = "unsupported"; printResult(raw, pre("(емулятор не вміє такий фільтр)", "line-warn"), "warn", "Тренажер фільтрує лише прості умови: ключ=значення, ключ!=значення, ключ~\"текст\"."); return false; }
     printResult(raw, pre(r.text || "(порожньо)"), "ok", (hint || "") + (r.follow ? " follow показує нові записи наживо; вихід — Q або Ctrl+C." : ""));
     return "ok";
   }
@@ -860,7 +954,8 @@ function emulate(raw) {
     return "info";
   }
   if (p.verb && (MENUS[p.path] || KV_MENUS[p.path] || SUBMENUS[p.path])) {
-    printResult(raw, `<span class="line-warn">Тренажер не виконує «${esc(p.verb)}» у цьому меню.</span>`, "warn", "Зміни, які підтримує емулятор: /interface disable|enable|set, /ip address add, /ip dns set. Решту спершу перевір через print.");
+    LAST_KIND = "unsupported";
+    printResult(raw, `<span class="line-warn">Тренажер не виконує «${esc(p.verb)}» у цьому меню.</span>`, "warn", "Зміни, які підтримує емулятор: /interface disable|enable|set, /interface bridge port add, /ip address add, /ip dns set, /ip firewall filter disable|enable. Решту спершу перевір через print.");
     return false;
   }
   return unknown(raw, c);
@@ -887,13 +982,31 @@ function applySafeToggle() {
   }
   updatePrompt();
 }
+function rollbackSafe() {
+  const rolled = ROUTER.changes.filter(ch => ch.safe && ch.state === "U");
+  rolled.slice().reverse().forEach(ch => { ch.undo(); ch.state = "gone"; });
+  ROUTER.changes = ROUTER.changes.filter(ch => ch.state !== "gone");
+  ROUTER.safe = false;
+  return rolled;
+}
+// Ctrl+D на порожньому рядку: вихід із сесії; у Safe Mode — зі скасуванням усіх змін режиму (на відміну від /quit).
+function logoutCtrlD() {
+  beginView(null);
+  if (ROUTER.safe) {
+    const rolled = rollbackSafe();
+    printResult("Ctrl+D — вихід із сесії, зміни Safe Mode скасовано", `<span class="line-ok">Скасовано змін: ${rolled.length}</span><br>${rolled.map(ch => `<span class="line-muted">↶ ${esc(ch.action)}</span>`).join("<br>")}`, "warn",
+      "На справжньому роутері сесія закрилася б. /quit, на відміну від Ctrl+D, зміни Safe Mode зберігає. У тренажері можна продовжувати — ніби ти підключився знову.");
+  } else {
+    printResult("Ctrl+D — вихід із сесії", `<span class="line-muted">Safe Mode не був увімкнений — зміни лишаються на роутері.</span>`, "ok",
+      "На справжньому роутері сесія закрилася б (Ctrl+D працює, коли рядок вводу порожній). У тренажері можна продовжувати.");
+  }
+  updatePrompt();
+  flushView(`${promptText()} · перепідключено`);
+}
 function dropConnection() {
   beginView(null);
   if (ROUTER.safe) {
-    const rolled = ROUTER.changes.filter(ch => ch.safe && ch.state === "U");
-    rolled.slice().reverse().forEach(ch => { ch.undo(); ch.state = "gone"; });
-    ROUTER.changes = ROUTER.changes.filter(ch => ch.state !== "gone");
-    ROUTER.safe = false;
+    const rolled = rollbackSafe();
     printResult("Зв'язок обірвався — Safe Mode спрацював", `<span class="line-ok">Відкочено змін: ${rolled.length}</span><br>${rolled.map(ch => `<span class="line-muted">↶ ${esc(ch.action)}</span>`).join("<br>")}`, "ok",
       "На справжньому роутері відкат стається після тайм-ауту TCP (до ~9 хвилин). Ти знову підключився — конфігурація як до Safe Mode.");
   } else {
@@ -1065,6 +1178,9 @@ cmdInput.addEventListener("keydown", e => {
     // Ctrl+X з виділеним текстом лишається «вирізати»
     e.preventDefault();
     toggleSafe();
+  } else if (e.ctrlKey && !e.metaKey && !e.altKey && (e.code === "KeyD" || e.key === "d" || e.key === "D") && !cmdInput.value) {
+    e.preventDefault();
+    logoutCtrlD();
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
     if (state.histIdx > 0) { state.histIdx--; cmdInput.value = state.history[state.histIdx] || ""; }

@@ -14,7 +14,7 @@ window.CLI_COURSE.modules.push({
         { type: "cli", title: "Перші команди перегляду",
           intro: "<p>Дія <code>print</code> лише показує — з неї безпечно починати знайомство з будь-яким роутером.</p>",
           commands: [
-            { cmd: "/system resource print", explain: "Стан роутера: uptime, версія RouterOS, пам'ять, навантаження CPU.", output: "     uptime: 3d12h4m10s\n    version: 7.19.4 (stable)\nfree-memory: 892.4MiB\n   cpu-load: 4%", risk: "low" },
+            { cmd: "/system resource print", explain: "Стан роутера: uptime, версія RouterOS, пам'ять, навантаження CPU.", output: "     uptime: 3d12h4m10s\n    version: 7.24.4 (stable)\nfree-memory: 892.4MiB\n   cpu-load: 4%", risk: "low" },
             { cmd: "/interface print", explain: "Усі інтерфейси: порти, bridge, VLAN, Wi‑Fi, тунелі.", risk: "low" },
             { cmd: "/ip address print", explain: "Які IPv4-адреси висять на яких інтерфейсах.", output: "Flags: D - DYNAMIC\nColumns: ADDRESS, NETWORK, INTERFACE\n#   ADDRESS           NETWORK       INTERFACE\n0   10.0.0.254/24     10.0.0.0      bridge\n1 D 198.51.100.23/24  198.51.100.0  ether1", risk: "low" }
           ] },
@@ -81,9 +81,9 @@ window.CLI_COURSE.modules.push({
           hint: "Та сама команда, що показує інтерфейси, плюс слово, яке просить подробиць.",
           explain: "`detail` показує властивості, які потім змінюють через `set`. Коментар `;;; WAN` підказує, що ether1 дивиться в інтернет." },
         { type: "check", title: "Номери з print",
-          question: "`/ip firewall filter print` показав правила 0–7. Колега в іншому вікні додав правило. Ти пишеш `/ip firewall filter disable 3`. Що не так?",
-          options: ["Номери вже неактуальні — спершу знову `print`, щоб номер точно відповідав потрібному правилу", "`disable` не існує", "Нічого, номери в RouterOS постійні"],
-          correct: 0, feedback: "Номери призначає останній `print` у твоїй сесії. Надійніше звертатися за умовою: `[find comment=\"…\"]`." },
+          question: "`/ip firewall filter print` показав правила 0–7. Колега в іншому вікні додав правило на початок списку. Ти пишеш `/ip firewall filter disable 3`. Яке правило вимкнеться?",
+          options: ["Те, що твій `print` показав під номером 3: номери належать твоїй сесії й діють до твого наступного `print`", "Те, що тепер стоїть третім після правила колеги", "Жодне: RouterOS відмовить, бо номери застаріли"],
+          correct: 0, feedback: "Номери з `print` — власні для кожної сесії і лишаються чинними навіть після add/remove/move, доки ти знову не зробиш `print`. Колега бачить свою нумерацію. Щоб побачити актуальний порядок перед зміною — свіжий `print` у своїй сесії; надійніше звертатися за умовою: `[find comment=\"…\"]`." },
         { type: "terminal", title: "Спробуй: лише вимкнені",
           task: "Покажи лише вимкнені інтерфейси.",
           expected: ["/interface print where disabled=yes", "/interface/print where disabled=yes", "/interface print where disabled", "interface print where disabled=yes"],
@@ -104,7 +104,7 @@ window.CLI_COURSE.modules.push({
         { term: "where", def: "Фільтр у `print`: `print where disabled=yes`." },
         { term: "set", def: "Дія зміни властивостей наявного об'єкта." },
         { term: "find", def: "Пошук об'єктів за умовою, напр. `[find comment=\"LAB\"]`, замість номера." },
-        { term: "Номер об'єкта", def: "Число з лівої колонки `print`; дійсне до наступного `print` у сесії." }
+        { term: "Номер об'єкта", def: "Число з лівої колонки `print`; власне для твоєї сесії й дійсне до наступного `print` у ній (навіть після add/remove/move)." }
       ],
       quiz: [
         { question: "Яка команда нічого не змінює на роутері?", options: ["`/ip address add address=10.0.1.1/24 interface=ether5`", "`/ip firewall filter print detail`", "`/interface set ether5 disabled=yes`"], correct: 1, feedback: "`print detail` лише читає. `add` і `set` змінюють конфігурацію одразу." },

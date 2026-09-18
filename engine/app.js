@@ -1003,7 +1003,7 @@
     var host = qs('#quiz-host');
     var start = function () {
       runQuiz(host, {
-        questions: exam.quiz,
+        questions: shuffledOrder(exam.quiz.length).map(function (i) { return exam.quiz[i]; }),
         onFinish: function (score, pct) {
           var was = P.exam.passed;
           P.exam.attempts++;

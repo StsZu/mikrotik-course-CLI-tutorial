@@ -34,7 +34,7 @@ window.CLI_COURSE.modules.push({
             { cmd: "/ip firewall filter remove 3", explain: "Видалити правило 3 («drop all not coming from LAN») — керування роутером відкриється з інтернету.", risk: "high" }
           ] },
         { type: "callout", variant: "danger", title: "move і remove у firewall",
-          body: "<p>Переміщення чи видалення правила діє миттєво: або роутер відкривається світу, або ти блокуєш власне підключення. Номери беруться з останнього <code>print</code> — після чужих змін вони вже інші.</p><p>Безпечніше: <code>/ip firewall filter print detail</code> і <code>/export file=before-fw</code>, Safe Mode (<span class=\"kbd\">Ctrl</span> + <span class=\"kbd\">X</span>), замість <code>remove</code> — спершу <code>disable</code>, звертайся за <code>[find comment=…]</code>.</p>" },
+          body: "<p>Переміщення чи видалення правила діє миттєво: або роутер відкривається світу, або ти блокуєш власне підключення. Номери беруться з останнього <code>print</code> <strong>у твоїй сесії</strong> і діють до наступного <code>print</code>; колега в іншому вікні бачить свою нумерацію, а порядок правил після чужих змін міг зсунутися. Перед зміною — свіжий <code>print</code> у своїй сесії або звернення за умовою.</p><p>Безпечніше: <code>/ip firewall filter print detail</code> і <code>/export file=before-fw</code>, Safe Mode (<span class=\"kbd\">Ctrl</span> + <span class=\"kbd\">X</span>), замість <code>remove</code> — спершу <code>disable</code>, звертайся за <code>[find comment=…]</code>.</p>" },
         { type: "terminal", title: "Спробуй: NAT",
           task: "Покажи правила NAT.",
           expected: ["/ip firewall nat print", "/ip/firewall/nat/print", "/ip/firewall/nat print", "ip firewall nat print"],
@@ -61,7 +61,7 @@ window.CLI_COURSE.modules.push({
         { question: "Навіщо правило `masquerade` у NAT?", options: ["Щоб шифрувати трафік", "Щоб пристрої з приватними адресами LAN виходили в інтернет через адресу WAN", "Щоб блокувати рекламу"], correct: 1, feedback: "Приватні адреси `10.0.0.x` не маршрутизуються в інтернеті." },
         { question: "Яка дія з правилом firewall найлегше відкочується?", options: ["`remove`", "`move`", "`disable` — правило лишається, його вмикає `enable`"], correct: 2, feedback: "Вимкнене правило зберігає всі свої параметри." },
         { question: "Навіщо `print detail` і `/export` перед зміною firewall?", options: ["Щоб знати поточний стан і мати текстову копію правил для відновлення", "Щоб прискорити firewall", "Щоб скинути лічильники"], correct: 0, feedback: "Без «було» не зрозумієш, що саме зламалося, і не повернеш назад." },
-        { question: "Колега пише «видали правило 3», а ти востаннє робив `print` годину тому. Що робити?", options: ["Одразу `remove 3`", "Спершу знову `print` (номери могли змінитися) і звірити коментар правила", "Видалити всі правила"], correct: 1, feedback: "Номери діють до наступного `print`. Надійніше за номер — `[find comment=…]`." }
+        { question: "Колега пише «видали правило 3», а ти востаннє робив `print` годину тому. Що робити?", options: ["Одразу `remove 3`", "Спершу знову `print` (номери могли змінитися) і звірити коментар правила", "Видалити всі правила"], correct: 1, feedback: "Номери власні для кожної сесії й діють до її наступного `print`: «3» колеги — з його `print`, а не з твого. Свіжий `print` у своїй сесії покаже актуальний порядок; надійніше за номер — `[find comment=…]`." }
       ]
     },
     {

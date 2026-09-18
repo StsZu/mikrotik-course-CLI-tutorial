@@ -2,26 +2,26 @@ window.CLI_COURSE = window.CLI_COURSE || { modules: [], exam: null, cheatsheet: 
 window.CLI_COURSE.cheatsheet = {
   sections: [
     { title: "Навігація і довідка", rows: [
-      { cmd: "/ip address print = /ip/address/print", desc: "Слова шляху — через пробіл або `/`", risk: "low" },
-      { cmd: "Tab / Tab Tab", desc: "Доповнити слово / показати всі варіанти рівня", risk: "low" },
-      { cmd: "F1", desc: "Контекстна довідка в RouterOS 7 (у v6 — `?`)", risk: "low" },
+      { cmd: "/ip/address/print", desc: "Те саме, що `/ip address print`: слова шляху — через пробіл або `/`", risk: "low" },
+      { cmd: "Tab / Tab Tab", outsideTrainer: true, desc: "Доповнити слово / показати всі варіанти рівня", risk: "low" },
+      { cmd: "F1", outsideTrainer: true, desc: "Контекстна довідка в RouterOS 7 (у v6 — `?`)", risk: "low" },
       { cmd: "/ip address", desc: "Перейти в меню (запрошення `/ip/address>`); `/` — корінь, `..` — вище", risk: "low" },
-      { cmd: "Ctrl+C", desc: "Перервати поточну команду (ping, follow, torch)", risk: "low" },
+      { cmd: "Ctrl+C", outsideTrainer: true, desc: "Перервати поточну команду (ping, follow, torch)", risk: "low" },
       { cmd: "/quit", desc: "Вийти з сесії (зміни Safe Mode зберігаються)", risk: "low" }
     ] },
     { title: "Дії в меню", rows: [
-      { cmd: "print", desc: "Показати список", risk: "low" },
-      { cmd: "print detail", desc: "Усі властивості `ключ=значення`", risk: "low" },
-      { cmd: "print where disabled=yes", desc: "Фільтр: `=` точно, `~` містить, `!=` не дорівнює", risk: "low" },
-      { cmd: "add … / set … / enable / disable", desc: "Додати, змінити, увімкнути, вимкнути — діє одразу", risk: "medium" },
-      { cmd: "[find comment=\"LAB\"]", desc: "Звернутися до об'єкта за умовою, а не за номером", risk: "low" },
-      { cmd: "remove …", desc: "Видалити об'єкт без запитання", risk: "high" },
-      { cmd: "move …", desc: "Змінити порядок (у firewall — змінює, що пропускається)", risk: "high" }
+      { cmd: "/user group print", desc: "`print` — показати список (у будь-якому меню)", risk: "low" },
+      { cmd: "/interface print detail", desc: "`print detail` — усі властивості `ключ=значення`", risk: "low" },
+      { cmd: "/interface print where disabled=yes", desc: "Фільтр `where`: `=` точно, `~` містить, `!=` не дорівнює; для прапорців можна й `where disabled`", risk: "low" },
+      { cmd: "/interface set ether5 comment=LAB", desc: "`add` / `set` / `enable` / `disable` — додати, змінити, увімкнути, вимкнути — діє одразу", risk: "medium" },
+      { cmd: "/interface enable [find comment=\"LAB\"]", desc: "`[find …]` — звернутися до об'єкта за умовою, а не за номером з `print`", risk: "medium" },
+      { cmd: "/ip address remove [find address=\"10.0.1.1/24\"]", desc: "`remove` — видалити об'єкт без запитання", risk: "high" },
+      { cmd: "/ip firewall filter move 7 destination=2", desc: "`move` — змінити порядок (у firewall — змінює, що пропускається)", risk: "high" }
     ] },
     { title: "Безпечні зміни", rows: [
       { cmd: "/safe-mode", desc: "Увімкнути / вимкнути Safe Mode командою (кореневе меню RouterOS 7 на нашому роутері)", risk: "low" },
-      { cmd: "Ctrl+X (або F4)", desc: "Увімкнути / вимкнути Safe Mode; запрошення `<SAFE>`", risk: "low" },
-      { cmd: "Ctrl+D у Safe Mode", desc: "Вийти, скасувавши зміни Safe Mode", risk: "medium" },
+      { cmd: "Ctrl+X (або F4)", outsideTrainer: true, desc: "Увімкнути / вимкнути Safe Mode; запрошення `<SAFE>`", risk: "low" },
+      { cmd: "Ctrl+D у Safe Mode", outsideTrainer: true, desc: "Вийти, скасувавши зміни Safe Mode", risk: "medium" },
       { cmd: "/export file=before-change", desc: "Текстовий експорт `.rsc` (без паролів користувачів і ключів)", risk: "medium" },
       { cmd: "/export", desc: "Показати конфігурацію на екрані", risk: "low" },
       { cmd: "/system backup save name=before-change", desc: "Бінарний бекап для цього ж роутера; без `password=` не шифрується", risk: "medium" },

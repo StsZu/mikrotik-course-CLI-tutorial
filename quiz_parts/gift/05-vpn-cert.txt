@@ -63,7 +63,7 @@
 }
 
 ::Небезпечні IPsec-зміни::
-Яка зміни може «покласти» VPN і відрізати remote access? {
+Яка зміна може «покласти» VPN і відрізати remote access? {
 =/ip/ipsec policy remove
 ~/ip/ipsec statistics print
 ~/ip/ipsec active-peers print
