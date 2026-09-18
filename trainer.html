@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Тренажер MikroTik RouterOS CLI</title>
+  <style>
+    :root {
+      --bg: #0a1219; --panel: #121c26; --border: #2a3f52; --text: #e8f0f7;
+      --muted: #8aa4b8; --green: #3fb950; --cyan: #39c5cf; --yellow: #d29922;
+      --accent: #00a0e0; --blue: #58a6ff; --purple: #a371f7; --red: #f85149;
+      --prompt: #00a0e0;
+      --font: "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: radial-gradient(1200px 600px at 85% -10%, #0a2a3d 0%, var(--bg) 55%);
+      color: var(--text); font-family: Inter, system-ui, sans-serif;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .top-nav {
+      display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;
+      padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .top-nav a {
+      color: var(--muted); text-decoration: none; font-size: 0.88rem;
+      padding: 6px 12px; border-radius: 8px; border: 1px solid transparent;
+    }
+    .top-nav a:hover { color: var(--text); background: #1a2836; }
+    .top-nav a.active { color: var(--accent); border-color: var(--accent); background: rgba(0,160,224,0.1); }
+    body.embed .top-nav, body.embed header { display: none; }
+    body.embed .wrap { padding: 12px; }
+    :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .skip-link { position: absolute; left: -9999px; top: 8px; background: var(--panel); color: var(--cyan); padding: 8px 12px; border-radius: 8px; z-index: 200; }
+    .skip-link:focus { left: 8px; }
+    header { margin-bottom: 16px; }
+    header h1 { font-size: 1.25rem; margin: 0 0 6px; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+    .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 14px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } .sidebar { order: 2; } }
+    .sidebar, .terminal-wrap {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 0;
+    }
+    .sidebar { padding: 14px; font-size: 0.82rem; }
+    .sidebar h2 {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin: 0 0 10px;
+    }
+    .cmd-list { list-style: none; padding: 0; margin: 0 0 16px; max-height: 300px; overflow-y: auto; }
+    .cmd-list li { margin: 0; }
+    .cmd-btn {
+      display: block; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text);
+      padding: 5px 8px; border-radius: 6px; cursor: pointer; font-family: var(--font); font-size: 0.74rem;
+    }
+    .cmd-btn:hover { background: #1a2836; }
+    .cmd-list code { color: var(--cyan); word-break: break-all; }
+    .cmd-list li.done .cmd-btn code { color: var(--green); }
+    .cmd-list li.done .cmd-btn::after { content: " ✓"; color: var(--green); }
+    .progress { height: 6px; background: #1a2836; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+    .progress > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--cyan)); width: 0%; transition: width 0.3s; }
+    .stats { color: var(--muted); font-size: 0.78rem; margin-bottom: 12px; }
+    .hint-box { background: #1a2836; border-radius: 8px; padding: 10px; color: var(--muted); line-height: 1.45; font-size: 0.78rem; }
+    .module-badge {
+      display: inline-block; background: #1a2836; border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; color: var(--accent);
+      margin-bottom: 10px; font-family: var(--font);
+    }
+    .module-nav { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .module-nav button { text-align: left; font-family: var(--font); font-size: 0.7rem; }
+    .module-nav button.active { border-color: var(--accent); color: var(--accent); }
+    .terminal-wrap { display: flex; flex-direction: column; height: 560px; }
+    .term-bar {
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border); font-size: 0.78rem; color: var(--muted);
+    }
+    .dots { display: flex; gap: 6px; }
+    .dots span { width: 10px; height: 10px; border-radius: 50%; }
+    .dots span:nth-child(1) { background: #ff5f57; }
+    .dots span:nth-child(2) { background: #febc2e; }
+    .dots span:nth-child(3) { background: #28c840; }
+    .term-title { flex: 1; text-align: center; font-family: var(--font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .safe-badge { font-family: var(--font); font-size: 0.72rem; color: var(--yellow); border: 1px solid var(--yellow); border-radius: 6px; padding: 1px 6px; }
+    .output {
+      flex: 1; display: flex; flex-direction: column; padding: 16px;
+      min-height: 0; overflow: hidden; font-family: var(--font); font-size: 0.82rem; line-height: 1.5;
+    }
+    .output-status {
+      flex-shrink: 0; color: var(--muted); font-size: 0.75rem;
+      padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .live-panel { flex: 1; min-height: 0; overflow-y: auto; word-break: break-word; }
+    .live-panel pre { margin: 0; white-space: pre; overflow-x: auto; font-family: var(--font); font-size: 0.78rem; }
+    .line-user { color: var(--prompt); }
+    .line-muted { color: var(--muted); }
+    .line-ok { color: var(--green); }
+    .line-warn { color: var(--yellow); }
+    .line-err { color: var(--red); }
+    .line-cmd { color: var(--cyan); }
+    .line-hl { color: var(--blue); }
+    .line-uk-hint {
+      color: #e6c87a; font-size: 0.8rem; margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid rgba(230,200,122,0.25); line-height: 1.5; font-family: Inter, system-ui, sans-serif;
+    }
+    .result-box {
+      margin: 8px 0 12px; padding: 12px 14px; border-radius: 8px; min-width: 0;
+      border: 1px solid #0077a8; background: rgba(0,160,224,0.08); border-left: 4px solid var(--accent);
+    }
+    .result-box.warn { border-color: var(--yellow); background: rgba(210,153,34,0.1); border-left-color: var(--yellow); }
+    .result-box.danger { border-color: var(--red); background: rgba(248,81,73,0.1); border-left-color: var(--red); }
+    .result-box.purple { border-color: var(--purple); background: rgba(163,113,247,0.1); border-left-color: var(--purple); }
+    .result-title { color: var(--accent); font-weight: 600; margin-bottom: 8px; font-size: 0.82rem; }
+    .result-box.warn .result-title { color: var(--yellow); }
+    .result-box.danger .result-title { color: var(--red); }
+    .input-row {
+      display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+      border-top: 1px solid var(--border); background: #0a1219;
+    }
+    .prompt-label { color: var(--prompt); font-family: var(--font); font-size: 0.82rem; white-space: nowrap; }
+    #cmdInput {
+      flex: 1; min-width: 0; background: transparent; border: 1px solid transparent; border-radius: 6px;
+      color: var(--text); font-family: var(--font); font-size: 0.88rem; padding: 4px 6px;
+    }
+    #cmdInput:focus { outline: none; border-color: var(--cyan); }
+    .btn {
+      background: #1a2836; border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.78rem;
+    }
+    .btn:hover { background: #243444; }
+    .btn-primary { background: #0077a8; border-color: var(--accent); }
+    .btn-test { background: rgba(210,153,34,0.12); border-color: var(--yellow); color: #e6c87a; }
+    .btn-test.active { background: var(--yellow); color: #0a1219; }
+    .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .test-question { color: #e6c87a; line-height: 1.6; margin-bottom: 10px; font-family: Inter, system-ui, sans-serif; }
+    kbd { background: #1a2836; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-family: var(--font); font-size: 0.78rem; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#cmdInput">Перейти до поля вводу</a>
+  <div class="wrap">
+    <nav class="top-nav" aria-label="Навігація курсу">
+      <a href="index.html#/">← До курсу</a>
+      <a href="trainer.html" class="active" aria-current="page">Тренажер</a>
+      <a href="index.html#/cheatsheet">Шпаргалка</a>
+      <a href="quiz.html">Банк питань</a>
+    </nav>
+    <header>
+      <h1>Тренажер MikroTik RouterOS CLI</h1>
+      <p>
+        Емуляція RouterOS 7 без справжнього роутера: <code>[Stas@RB4011]</code>, LAN <code>10.0.0.0/24</code>, роутер <code>10.0.0.254</code>.
+        Команда зараховується лише в точному вигляді (регістр не важливий; <code>/ip/ipsec</code> = <code>/ip ipsec</code>).
+        <kbd>Ctrl</kbd>+<kbd>X</kbd> або <kbd>F4</kbd> — Safe Mode · <kbd>↑</kbd>/<kbd>↓</kbd> — історія · <kbd>Tab</kbd> — доповнення зі списку.
+      </p>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="module-badge" id="moduleBadge">CLI та безпечні зміни</div>
+        <h2>Прогрес розділу</h2>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="stats" id="progressText">0 / 0</div>
+        <h2>Розділи</h2>
+        <div class="module-nav" id="moduleNav"></div>
+        <h2>Команди розділу</h2>
+        <ul class="cmd-list" id="cmdChecklist"></ul>
+        <div class="hint-box">
+          <strong>Порядок роботи:</strong> <code>print detail</code> → <code>/export</code> → Safe Mode (<kbd>Ctrl</kbd>+<kbd>X</kbd>) → одна зміна → перевірка.<br>
+          <strong>Тест:</strong> опис → введи команду; можна пропустити.
+        </div>
+        <div class="actions">
+          <button class="btn btn-test" id="btnTest" type="button" aria-pressed="false">Режим тестування</button>
+          <button class="btn btn-test" id="btnSkip" type="button" hidden>Пропустити</button>
+          <button class="btn" id="btnSafe" type="button" aria-pressed="false">Safe Mode (Ctrl+X)</button>
+          <button class="btn" id="btnDrop" type="button" title="Що буде, якщо зв'язок з роутером обірветься">Імітувати обрив зв'язку</button>
+          <button class="btn btn-primary" id="btnReset" type="button">Нова сесія (скинути роутер)</button>
+          <button class="btn" id="btnResetProgress" type="button">Скинути прогрес</button>
+        </div>
+      </aside>
+      <section class="terminal-wrap">
+        <div class="term-bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div class="term-title" id="termTitle">Stas@RB4011 · RouterOS 7</div>
+          <span class="safe-badge" id="safeBadge" hidden>SAFE</span>
+        </div>
+        <div class="output" id="output" role="log" aria-live="polite" aria-label="Вивід терміналу">
+          <div class="output-status" id="outputStatus">[Stas@RB4011] &gt;</div>
+          <div class="live-panel" id="livePanel"></div>
+        </div>
+        <form class="input-row" id="cmdForm" autocomplete="off">
+          <span class="prompt-label" id="promptLabel">[Stas@RB4011] &gt;</span>
+          <label class="visually-hidden" for="cmdInput">Команда RouterOS</label>
+          <input id="cmdInput" type="text" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" placeholder="/system resource print …" />
+        </form>
+      </section>
+    </div>
+  </div>
+  <script>
+"use strict";
+const STORAGE_KEY = "cli-mikrotik-v1-trainer";
+
+/* ---------- розділи й чеклісти ---------- */
+const MODULE_LIST = [
+  { id: "basics", title: "CLI та безпечні зміни", intro: "Шляхи меню, print, export і backup перед змінами, історія змін, undo/redo, ping.", commands: [
+    ["/interface print", "Список усіх інтерфейсів коротко: ім'я, тип, MTU, прапорці стану."],
+    ["/interface print detail", "Усі властивості кожного інтерфейсу (формат property=value) — перший крок перед змінами."],
+    ["/ip address print", "IPv4-адреси на інтерфейсах роутера."],
+    ["/export file=before-change", "Зберегти текстовий експорт конфігурації у файл before-change.rsc на роутері."],
+    ["/system backup save name=before-change", "Зберегти бінарний бекап before-change.backup для відновлення на цьому ж роутері."],
+    ["/file print", "Файли на роутері: бекапи, експорти, скрипти."],
+    ["/system history print", "Історія змін конфігурації (що можна скасувати через /undo)."],
+    ["/safe-mode", "Увімкнути Safe Mode командою з кореневого меню (як Ctrl+X / F4). Вийти й зберегти — Ctrl+X; у тренажері повторна команда теж перемикає."],
+    ["/undo", "Скасувати останню зміну конфігурації."],
+    ["/redo", "Повернути зміну, скасовану через /undo."],
+    ["/ping 8.8.8.8 count=4", "Надіслати рівно 4 ping-запити до 8.8.8.8 з самого роутера."]
+  ] },
+  { id: "system", title: "Система і діагностика", intro: "Ресурси, плата, пакети, час, ім'я, логи, traceroute, torch, profile.", commands: [
+    ["/system resource print", "CPU, пам'ять, uptime і версія RouterOS."],
+    ["/system routerboard print", "Модель плати, серійний номер і версія RouterBOOT (прошивки завантажувача)."],
+    ["/system package print", "Встановлені пакети: основний routeros і опційні (напр. wifi-qcom-ac, container)."],
+    ["/system clock print", "Дата, час і часовий пояс роутера."],
+    ["/system identity print", "Ім'я роутера (identity), яке видно в запрошенні."],
+    ["/log print", "Системний журнал."],
+    ["/log print follow", "Журнал наживо: нові записи з'являються без повторного запуску."],
+    ["/log print where topics~\"firewall\"", "Лише записи журналу, в темах яких є firewall."],
+    ["/tool traceroute 8.8.8.8", "Шлях пакетів від роутера до 8.8.8.8 вузол за вузлом."],
+    ["/tool torch interface=ether1", "Живий перегляд трафіку на ether1: хто з ким і скільки."],
+    ["/tool profile", "Що завантажує процесор роутера."]
+  ] },
+  { id: "interface", title: "Інтерфейси", intro: "Ethernet, bridge, VLAN, списки інтерфейсів, Wi‑Fi, WireGuard, вимкнення порту.", commands: [
+    ["/interface ethernet print", "Лише фізичні Ethernet-порти."],
+    ["/interface bridge print", "Bridge-інтерфейси (програмні «комутатори» роутера)."],
+    ["/interface bridge port print", "Які порти входять у bridge."],
+    ["/interface vlan print", "VLAN-інтерфейси: ID і батьківський інтерфейс."],
+    ["/interface list print", "Списки інтерфейсів (WAN, LAN), на які посилається firewall."],
+    ["/interface list member print", "Які інтерфейси входять у списки WAN і LAN."],
+    ["/interface wifi registration-table print", "Wi‑Fi клієнти, підключені зараз (пакет wifi, RouterOS 7)."],
+    ["/interface wireguard print", "WireGuard-інтерфейси: порт і публічний ключ."],
+    ["/interface wireguard peers print", "Піри WireGuard: хто може підключатися і з якими адресами."],
+    ["/interface monitor-traffic ether1", "Швидкість трафіку на ether1 наживо."],
+    ["/interface print where disabled=yes", "Лише вимкнені інтерфейси."],
+    ["/interface disable ether5", "Вимкнути порт ether5 (зміна конфігурації!)."],
+    ["/interface enable ether5", "Увімкнути порт ether5 назад."]
+  ] },
+  { id: "ip", title: "IP, маршрути, DNS, DHCP", intro: "Адреси, маршрути, DNS, ARP, сусіди, DHCP; перші зміни через add і set.", commands: [
+    ["/ip route print", "Таблиця маршрутів IPv4."],
+    ["/ip route print where dst-address=0.0.0.0/0", "Лише маршрут за замовчуванням (default route)."],
+    ["/ip dns print", "Налаштування DNS роутера: сервери, кеш, чи відповідає клієнтам LAN."],
+    ["/ip arp print", "ARP-таблиця: яка IP-адреса за якою MAC-адресою."],
+    ["/ip neighbor print", "Сусідні пристрої, знайдені протоколами виявлення MNDP/CDP/LLDP."],
+    ["/ip dhcp-client print", "DHCP-клієнт на WAN: яку адресу видав провайдер."],
+    ["/ip dhcp-server lease print", "Хто з LAN отримав адресу від DHCP-сервера роутера."],
+    ["/ip address add address=10.0.1.1/24 interface=ether5", "Додати адресу 10.0.1.1/24 на порт ether5 (нова лабораторна мережа)."],
+    ["/ip dns set servers=1.1.1.1,8.8.8.8", "Задати DNS-сервери роутера 1.1.1.1 і 8.8.8.8."]
+  ] },
+  { id: "firewall", title: "Firewall і доступ", intro: "Правила filter і NAT, списки адрес, з'єднання, користувачі, сервіси керування.", commands: [
+    ["/ip firewall filter print", "Правила фільтрації трафіку в порядку перевірки."],
+    ["/ip firewall filter print detail", "Правила фільтрації з усіма властивостями."],
+    ["/ip firewall nat print", "Правила NAT (masquerade, dst-nat)."],
+    ["/ip firewall address-list print", "Списки адрес, на які посилаються правила."],
+    ["/ip firewall connection print", "Активні з'єднання (connection tracking)."],
+    ["/user print", "Локальні користувачі RouterOS."],
+    ["/user group print", "Групи користувачів і їхні права (read, write, full)."],
+    ["/user active print", "Хто зараз підключений до роутера і як (ssh, winbox)."],
+    ["/ip service print", "Сервіси керування (ssh, winbox, www, api): порти й дозволені адреси."],
+    ["/ip ssh print", "Налаштування SSH-сервера роутера."]
+  ] },
+  { id: "vpn", title: "VPN і сертифікати", intro: "Діагностика IPsec (peers, SA, policy), журнал ipsec, сертифікати.", commands: [
+    ["/ip ipsec active-peers print", "IPsec-піри, з якими зараз встановлено IKE-з'єднання."],
+    ["/ip ipsec installed-sa print", "Встановлені Security Associations — чи справді шифрується трафік."],
+    ["/ip ipsec peer print", "Налаштовані IPsec-піри: адреса й профіль."],
+    ["/ip ipsec policy print", "IPsec-політики: трафік між якими мережами шифрувати."],
+    ["/ip ipsec identity print", "Як пір автентифікується: сертифікат чи спільний ключ."],
+    ["/ip ipsec statistics print", "Лічильники помилок IPsec."],
+    ["/log print where topics~\"ipsec\"", "Лише записи журналу про IPsec."],
+    ["/certificate print", "Сертифікати на роутері з прапорцями (K — є приватний ключ, T — довірений)."],
+    ["/certificate print detail", "Усі поля сертифікатів: строк дії, відбиток."],
+    ["/certificate print where name~\"vpn\"", "Лише сертифікати, в імені яких є vpn."],
+    ["/certificate export", "Експорт налаштувань меню /certificate (самі сертифікати й ключі сюди не потрапляють)."]
+  ] }
+];
+
+// Явні еквіваленти (приймаються і в чеклісті, і в тесті). Шлях через "/" чи пробіл і регістр нормалізуються окремо.
+const ALIASES = {
+  "/ping 8.8.8.8 count=4": ["/ping address=8.8.8.8 count=4", "/ping count=4 8.8.8.8", "/tool ping 8.8.8.8 count=4", "/tool ping address=8.8.8.8 count=4"],
+  "/tool traceroute 8.8.8.8": ["/tool traceroute address=8.8.8.8"],
+  "/tool torch interface=ether1": ["/tool torch ether1"],
+  "/interface monitor-traffic ether1": ["/interface monitor-traffic interface=ether1"],
+  "/interface disable ether5": ["/interface disable numbers=ether5", "/interface set ether5 disabled=yes"],
+  "/interface enable ether5": ["/interface enable numbers=ether5", "/interface set ether5 disabled=no"],
+  "/export file=before-change": ["/export file=before-change.rsc"],
+  "/system backup save name=before-change": ["/system backup save name=before-change.backup"],
+  "/log print where topics~\"firewall\"": ["/log print where topics~firewall"],
+  "/log print where topics~\"ipsec\"": ["/log print where topics~ipsec"],
+  "/certificate print where name~\"vpn\"": ["/certificate print where name~vpn"],
+  "/ip dns set servers=1.1.1.1,8.8.8.8": ["/ip dns set servers=\"1.1.1.1,8.8.8.8\""],
+  "/ip address add address=10.0.1.1/24 interface=ether5": ["/ip address add interface=ether5 address=10.0.1.1/24"]
+};
+
+const UK_HINTS = {};
+const MODULES = {};
+MODULE_LIST.forEach(m => {
+  MODULES[m.id] = { id: m.id, title: m.title, intro: m.intro, commands: m.commands.map(c => c[0]) };
+  m.commands.forEach(c => { if (!UK_HINTS[c[0]]) UK_HINTS[c[0]] = c[1]; });
+});
+
+/* ---------- строгий матчинг ---------- */
+function tokenize(s) { return String(s).match(/[^\s"]*"[^"]*"[^\s"]*|\S+/g) || []; }
+function normalizeCommand(s) {
+  return String(s || "").replace(/[“”„«»]/g, "\"").replace(/[‘’ʼ]/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
+}
+// RouterOS 7: слова шляху можна розділяти пробілом або "/" (/ip/ipsec = /ip ipsec); на корені початковий "/" необов'язковий.
+function canonical(s) {
+  const n = normalizeCommand(s);
+  if (!n) return "";
+  const out = [];
+  tokenize(n).forEach(t => {
+    if (/[=~"\[\]]/.test(t) || /^\d/.test(t)) out.push(t);
+    else t.split("/").forEach(p => { if (p) out.push(p); });
+  });
+  return "/" + out.join(" ");
+}
+function matches(input, listed) {
+  const a = canonical(input);
+  if (!a || a === "/") return false;
+  if (a === canonical(listed)) return true;
+  return (ALIASES[listed] || []).some(x => canonical(x) === a);
+}
+function allCommands() {
+  const seen = new Set(), out = [];
+  MODULE_LIST.forEach(m => m.commands.forEach(c => { if (!seen.has(c[0])) { seen.add(c[0]); out.push(c[0]); } }));
+  return out;
+}
+window.TRAINER = { commands: allCommands, matches: matches };
+
+/* ---------- стан роутера (емуляція) ---------- */
+const ROUTER = {};
+function initRouter() {
+  ROUTER.identity = "RB4011";
+  ROUTER.safe = false; ROUTER.safeMark = 0;
+  ROUTER.dns = "1.1.1.1";
+  ROUTER.ifaces = [
+    { name: "ether1", type: "ether", mtu: 1500, l2: 1598, running: true, slave: false, disabled: false, comment: "WAN" },
+    { name: "ether2", type: "ether", mtu: 1500, l2: 1598, running: true, slave: true, disabled: false },
+    { name: "ether3", type: "ether", mtu: 1500, l2: 1598, running: true, slave: true, disabled: false },
+    { name: "ether4", type: "ether", mtu: 1500, l2: 1598, running: false, slave: true, disabled: false },
+    { name: "ether5", type: "ether", mtu: 1500, l2: 1598, running: true, slave: false, disabled: false, comment: "LAB" },
+    { name: "bridge", type: "bridge", mtu: 1500, l2: 1598, running: true, slave: false, disabled: false, comment: "LAN" },
+    { name: "vlan20-iot", type: "vlan", mtu: 1500, l2: 1594, running: true, slave: false, disabled: false },
+    { name: "wifi1", type: "wifi", mtu: 1500, l2: 1560, running: true, slave: true, disabled: false },
+    { name: "wg-home", type: "wg", mtu: 1420, l2: "", running: true, slave: false, disabled: true }
+  ];
+  ROUTER.addresses = [
+    { address: "10.0.0.254/24", network: "10.0.0.0", interface: "bridge", dynamic: false, comment: "defconf" },
+    { address: "198.51.100.23/24", network: "198.51.100.0", interface: "ether1", dynamic: true },
+    { address: "10.0.20.1/24", network: "10.0.20.0", interface: "vlan20-iot", dynamic: false }
+  ];
+  ROUTER.files = [
+    { name: "skins", type: "directory", size: "" },
+    { name: "pub", type: "directory", size: "" }
+  ];
+  ROUTER.changes = [
+    { action: "dns changed", undo: () => { ROUTER.dns = "8.8.8.8"; }, redo: () => { ROUTER.dns = "1.1.1.1"; }, state: "U", safe: false }
+  ];
+}
+function ifaceByName(n) { return ROUTER.ifaces.find(i => i.name === n); }
+function recordChange(action, undo, redo) {
+  ROUTER.changes.forEach(c => { if (c.state === "R") c.state = "gone"; });
+  ROUTER.changes = ROUTER.changes.filter(c => c.state !== "gone");
+  ROUTER.changes.push({ action, undo, redo, state: "U", safe: ROUTER.safe });
+}
+
+/* ---------- вивід у форматі RouterOS ---------- */
+function pad(s, n, right) { s = String(s); return right ? s.padStart(n) : s.padEnd(n); }
+function table(flags, cols, rows) {
+  // cols: [{h, k, r}] ; rows: [{flags, comment, f:{}}]
+  const widths = cols.map(c => Math.max(c.h.length, ...rows.map(r => String(r.f[c.k] ?? "").length)));
+  const fw = Math.max(1, ...rows.map(r => (r.flags || "").length));
+  const idw = String(Math.max(0, rows.length - 1)).length;
+  const lines = [];
+  if (flags) lines.push("Flags: " + flags);
+  lines.push("Columns: " + cols.map(c => c.h).join(", "));
+  lines.push(pad("#", idw + 1) + " " + pad("", fw) + " " + cols.map((c, i) => pad(c.h, widths[i], c.r)).join("  "));
+  rows.forEach((r, ri) => {
+    if (r.comment) lines.push(pad(String(r.id ?? ri), idw + 1, true) + " " + pad(r.flags || "", fw) + " ;;; " + r.comment);
+    const idCol = r.comment ? pad("", idw + 1) : pad(String(r.id ?? ri), idw + 1, true);
+    lines.push(idCol + " " + pad(r.comment ? "" : (r.flags || ""), fw) + " " + cols.map((c, i) => pad(r.f[c.k] ?? "", widths[i], c.r)).join("  "));
+  });
+  return lines.join("\n");
+}
+function detail(flags, rows) {
+  const lines = [];
+  if (flags) lines.push("Flags: " + flags);
+  rows.forEach((r, ri) => {
+    const head = pad(String(r.id ?? ri), 2, true) + " " + pad(r.flags || "", 3);
+    const props = Object.keys(r.f).filter(k => !k.startsWith("_")).map(k => {
+      const v = String(r.f[k]);
+      return k + "=" + (/^[\w.:/,+!*-]+$/.test(v) && v !== "" ? v : "\"" + v + "\"");
+    });
+    if (r.comment) { lines.push(head + " ;;; " + r.comment); lines.push("       " + props.join(" ")); }
+    else lines.push(head + " " + props.join(" "));
+    lines.push("");
+  });
+  return lines.join("\n").trimEnd();
+}
+function kv(pairs) {
+  const w = Math.max(...pairs.map(p => p[0].length));
+  return pairs.map(p => pad(p[0], w, true) + ": " + p[1]).join("\n");
+}
+
+/* ---------- меню з print ---------- */
+const MENUS = {
+  "interface": () => ({ flags: "X - DISABLED; R - RUNNING; S - SLAVE", cols: [{ h: "NAME", k: "name" }, { h: "TYPE", k: "type" }, { h: "ACTUAL-MTU", k: "actual-mtu", r: 1 }, { h: "L2MTU", k: "l2mtu", r: 1 }],
+    rows: ROUTER.ifaces.map(i => ({ flags: (i.disabled ? "X" : (i.running ? "R" : "")) + (i.slave ? "S" : ""), comment: i.comment,
+      f: { name: i.name, type: i.type, "actual-mtu": i.mtu, "l2mtu": i.l2, _disabled: i.disabled ? "yes" : "no", _running: (i.running && !i.disabled) ? "yes" : "no" } })) }),
+  "interface ethernet": () => ({ flags: "X - DISABLED; R - RUNNING; S - SLAVE", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu", r: 1 }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "ARP", k: "arp" }],
+    rows: ROUTER.ifaces.filter(i => i.type === "ether").map((i, n) => ({ flags: (i.disabled ? "X" : (i.running ? "R" : "")) + (i.slave ? "S" : ""), comment: i.comment,
+      f: { name: i.name, mtu: i.mtu, "mac-address": "48:A9:8A:10:20:0" + (n + 1), arp: "enabled", _disabled: i.disabled ? "yes" : "no" } })) }),
+  "interface bridge": () => ({ flags: "X - DISABLED; R - RUNNING", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu" }, { h: "ACTUAL-MTU", k: "actual-mtu", r: 1 }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "PROTOCOL-MODE", k: "protocol-mode" }],
+    rows: [{ flags: "R", comment: "defconf", f: { name: "bridge", mtu: "auto", "actual-mtu": 1500, "mac-address": "48:A9:8A:10:20:02", "protocol-mode": "rstp", "vlan-filtering": "no" } }] }),
+  "interface bridge port": () => ({ flags: "I - INACTIVE; H - HW-OFFLOAD", cols: [{ h: "INTERFACE", k: "interface" }, { h: "BRIDGE", k: "bridge" }, { h: "HW", k: "hw" }, { h: "PVID", k: "pvid", r: 1 }],
+    rows: [["ether2", "H"], ["ether3", "H"], ["ether4", "IH"], ["wifi1", ""]].map(p => ({ flags: p[1], f: { interface: p[0], bridge: "bridge", hw: p[0].startsWith("ether") ? "yes" : "", pvid: 1 } })) }),
+  "interface vlan": () => ({ flags: "X - DISABLED; R - RUNNING", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu", r: 1 }, { h: "ARP", k: "arp" }, { h: "VLAN-ID", k: "vlan-id", r: 1 }, { h: "INTERFACE", k: "interface" }],
+    rows: [{ flags: "R", f: { name: "vlan20-iot", mtu: 1500, arp: "enabled", "vlan-id": 20, interface: "bridge" } }] }),
+  "interface list": () => ({ flags: "* - BUILTIN", cols: [{ h: "NAME", k: "name" }, { h: "INCLUDE", k: "include" }],
+    rows: [["all", "*"], ["none", "*"], ["dynamic", "*"], ["static", "*"], ["WAN", ""], ["LAN", ""]].map(p => ({ flags: p[1], comment: p[0] === "WAN" || p[0] === "LAN" ? "defconf" : "", f: { name: p[0], include: "" } })) }),
+  "interface list member": () => ({ flags: "X - DISABLED; D - DYNAMIC", cols: [{ h: "LIST", k: "list" }, { h: "INTERFACE", k: "interface" }],
+    rows: [{ comment: "defconf", f: { list: "LAN", interface: "bridge" } }, { comment: "defconf", f: { list: "WAN", interface: "ether1" } }] }),
+  "interface wifi registration-table": () => ({ flags: "", cols: [{ h: "INTERFACE", k: "interface" }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "UPTIME", k: "uptime" }, { h: "SIGNAL", k: "signal", r: 1 }, { h: "AUTH-TYPE", k: "auth-type" }, { h: "BAND", k: "band" }],
+    rows: [{ f: { interface: "wifi1", "mac-address": "3C:22:FB:10:AA:50", uptime: "2h14m3s", signal: -58, "auth-type": "wpa2-psk", band: "5ghz-ac" } },
+      { f: { interface: "wifi1", "mac-address": "A4:83:E7:5C:01:42", uptime: "35m10s", signal: -67, "auth-type": "wpa2-psk", band: "5ghz-ac" } }] }),
+  "interface wireguard": () => { const w = ifaceByName("wg-home"); return { flags: "X - DISABLED; R - RUNNING", cols: [{ h: "NAME", k: "name" }, { h: "MTU", k: "mtu", r: 1 }, { h: "LISTEN-PORT", k: "listen-port", r: 1 }, { h: "PUBLIC-KEY", k: "public-key" }],
+    rows: [{ flags: w.disabled ? "X" : "R", f: { name: "wg-home", mtu: 1420, "listen-port": 13231, "public-key": "k8Tq…Zw4= (скорочено)" } }] }; },
+  "interface wireguard peers": () => ({ flags: "X - DISABLED", cols: [{ h: "NAME", k: "name" }, { h: "INTERFACE", k: "interface" }, { h: "PUBLIC-KEY", k: "public-key" }, { h: "ALLOWED-ADDRESS", k: "allowed-address" }],
+    rows: [{ f: { name: "stas-laptop", interface: "wg-home", "public-key": "Rm3p…Qe0= (скорочено)", "allowed-address": "10.0.9.2/32" } },
+      { f: { name: "stas-phone", interface: "wg-home", "public-key": "u7Yc…Lk8= (скорочено)", "allowed-address": "10.0.9.3/32" } }] }),
+  "ip address": () => ({ flags: "D - DYNAMIC", cols: [{ h: "ADDRESS", k: "address" }, { h: "NETWORK", k: "network" }, { h: "INTERFACE", k: "interface" }],
+    rows: ROUTER.addresses.map(a => ({ flags: a.dynamic ? "D" : "", comment: a.comment, f: { address: a.address, network: a.network, interface: a.interface } })) }),
+  "ip route": () => ({ flags: "D - DYNAMIC; A - ACTIVE; c - CONNECT, s - STATIC, d - DHCP", cols: [{ h: "DST-ADDRESS", k: "dst-address" }, { h: "GATEWAY", k: "gateway" }, { h: "DISTANCE", k: "distance", r: 1 }],
+    rows: [["DAd", "0.0.0.0/0", "198.51.100.1", 1]].concat(ROUTER.addresses.map(a => ["DAc", a.network + "/" + a.address.split("/")[1], a.interface, 0]))
+      .map(p => ({ flags: p[0], f: { "dst-address": p[1], gateway: p[2], distance: p[3] } })) }),
+  "ip arp": () => ({ flags: "D - DYNAMIC; C - COMPLETE", cols: [{ h: "ADDRESS", k: "address" }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "INTERFACE", k: "interface" }],
+    rows: [["10.0.0.42", "F0:18:98:3A:4B:42", "bridge"], ["10.0.0.50", "3C:22:FB:10:AA:50", "bridge"], ["10.0.0.2", "48:A9:8A:77:10:02", "bridge"], ["198.51.100.1", "00:1B:21:9C:00:01", "ether1"]]
+      .map(p => ({ flags: "DC", f: { address: p[0], "mac-address": p[1], interface: p[2] } })) }),
+  "ip neighbor": () => ({ flags: "", cols: [{ h: "INTERFACE", k: "interface" }, { h: "ADDRESS", k: "address" }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "IDENTITY", k: "identity" }, { h: "PLATFORM", k: "platform" }, { h: "VERSION", k: "version" }, { h: "DISCOVERED-BY", k: "discovered-by" }],
+    rows: [{ f: { interface: "ether2,bridge", address: "10.0.0.2", "mac-address": "48:A9:8A:77:10:02", identity: "hAP-ax2", platform: "MikroTik", version: "7.19.4 (stable)", "discovered-by": "mndp,lldp" } },
+      { f: { interface: "ether3,bridge", address: "10.0.0.3", "mac-address": "00:1E:58:40:10:03", identity: "office-switch", platform: "", version: "", "discovered-by": "lldp" } }] }),
+  "ip dhcp-client": () => ({ flags: "X - DISABLED; I - INVALID", cols: [{ h: "INTERFACE", k: "interface" }, { h: "USE-PEER-DNS", k: "use-peer-dns" }, { h: "ADD-DEFAULT-ROUTE", k: "add-default-route" }, { h: "STATUS", k: "status" }, { h: "ADDRESS", k: "address" }],
+    rows: [{ comment: "defconf", f: { interface: "ether1", "use-peer-dns": "yes", "add-default-route": "yes", status: "bound", address: "198.51.100.23/24" } }] }),
+  "ip dhcp-server lease": () => ({ flags: "D - DYNAMIC", cols: [{ h: "ADDRESS", k: "address" }, { h: "MAC-ADDRESS", k: "mac-address" }, { h: "HOST-NAME", k: "host-name" }, { h: "SERVER", k: "server" }, { h: "STATUS", k: "status" }],
+    rows: [["D", "10.0.0.42", "F0:18:98:3A:4B:42", "MacBook-Pro"], ["D", "10.0.0.50", "3C:22:FB:10:AA:50", "iPhone"], ["", "10.0.0.10", "00:80:77:21:10:10", "printer"]]
+      .map(p => ({ flags: p[0], f: { address: p[1], "mac-address": p[2], "host-name": p[3], server: "defconf", status: "bound" } })) }),
+  "ip firewall filter": () => ({ flags: "X - DISABLED, I - INVALID; D - DYNAMIC", props: true,
+    rows: [
+      ["defconf: accept established,related,untracked", { chain: "input", action: "accept", "connection-state": "established,related,untracked" }],
+      ["defconf: drop invalid", { chain: "input", action: "drop", "connection-state": "invalid" }],
+      ["defconf: accept ICMP", { chain: "input", action: "accept", protocol: "icmp" }],
+      ["defconf: drop all not coming from LAN", { chain: "input", action: "drop", "in-interface-list": "!LAN" }],
+      ["defconf: fasttrack", { chain: "forward", action: "fasttrack-connection", "connection-state": "established,related", "hw-offload": "yes" }],
+      ["defconf: accept established,related, untracked", { chain: "forward", action: "accept", "connection-state": "established,related,untracked" }],
+      ["defconf: drop invalid", { chain: "forward", action: "drop", "connection-state": "invalid" }],
+      ["defconf: drop all from WAN not DSTNATed", { chain: "forward", action: "drop", "connection-state": "new", "connection-nat-state": "!dstnat", "in-interface-list": "WAN" }]
+    ].map(p => ({ comment: p[0], f: p[1] })) }),
+  "ip firewall nat": () => ({ flags: "X - DISABLED, I - INVALID; D - DYNAMIC", props: true,
+    rows: [{ comment: "defconf: masquerade", f: { chain: "srcnat", action: "masquerade", "out-interface-list": "WAN", "ipsec-policy": "out,none" } }] }),
+  "ip firewall address-list": () => ({ flags: "X - DISABLED; D - DYNAMIC", cols: [{ h: "LIST", k: "list" }, { h: "ADDRESS", k: "address" }, { h: "CREATION-TIME", k: "creation-time" }],
+    rows: [["trusted", "10.0.0.42"], ["trusted", "10.0.9.0/24"], ["blocked", "203.0.113.66"]].map(p => ({ f: { list: p[0], address: p[1], "creation-time": "2026-09-01 10:12:40" } })) }),
+  "ip firewall connection": () => ({ flags: "S - SEEN-REPLY; A - ASSURED; C - CONFIRMED; F - FASTTRACK; s - SRCNAT", cols: [{ h: "PROTOCOL", k: "protocol" }, { h: "SRC-ADDRESS", k: "src-address" }, { h: "DST-ADDRESS", k: "dst-address" }, { h: "TCP-STATE", k: "tcp-state" }, { h: "TIMEOUT", k: "timeout" }],
+    rows: [["SAC Fs", "tcp", "10.0.0.42:51044", "140.82.121.4:443", "established", "23h59m"], ["SAC  s", "udp", "10.0.0.50:5353", "1.1.1.1:53", "", "8s"], ["SAC", "tcp", "10.0.0.42:50122", "10.0.0.254:22", "established", "23h58m"]]
+      .map(p => ({ flags: p[0], f: { protocol: p[1], "src-address": p[2], "dst-address": p[3], "tcp-state": p[4], timeout: p[5] } })) }),
+  "user": () => ({ flags: "X - DISABLED", cols: [{ h: "NAME", k: "name" }, { h: "GROUP", k: "group" }, { h: "ADDRESS", k: "address" }, { h: "LAST-LOGGED-IN", k: "last-logged-in" }],
+    rows: [{ flags: "", f: { name: "Stas", group: "full", address: "10.0.0.0/24", "last-logged-in": "2026-09-18 13:58:02" } },
+      { flags: "X", comment: "system default user", f: { name: "admin", group: "full", address: "", "last-logged-in": "" } },
+      { flags: "", f: { name: "monitor", group: "read", address: "10.0.0.0/24", "last-logged-in": "" } }] }),
+  "user group": () => ({ flags: "* - BUILTIN", cols: [{ h: "NAME", k: "name" }, { h: "POLICY", k: "policy" }],
+    rows: [["read", "local,telnet,ssh,reboot,read,test,winbox,password,web,sniff,sensitive,api,romon,rest-api"], ["write", "local,telnet,ssh,reboot,read,write,test,winbox,password,web,sniff,sensitive,api,romon,rest-api"], ["full", "local,telnet,ssh,ftp,reboot,read,write,policy,test,winbox,password,web,sniff,sensitive,api,romon,rest-api"]]
+      .map(p => ({ flags: "*", f: { name: p[0], policy: p[1] } })) }),
+  "user active": () => ({ flags: "R - RADIUS", cols: [{ h: "WHEN", k: "when" }, { h: "NAME", k: "name" }, { h: "ADDRESS", k: "address" }, { h: "VIA", k: "via" }, { h: "GROUP", k: "group" }],
+    rows: [{ f: { when: "2026-09-18 13:58:02", name: "Stas", address: "10.0.0.42", via: "ssh", group: "full" } }, { f: { when: "2026-09-18 09:12:40", name: "Stas", address: "10.0.0.42", via: "winbox", group: "full" } }] }),
+  "ip service": () => ({ flags: "X - DISABLED, I - INVALID", cols: [{ h: "NAME", k: "name" }, { h: "PORT", k: "port", r: 1 }, { h: "ADDRESS", k: "address" }, { h: "CERTIFICATE", k: "certificate" }],
+    rows: [["X", "telnet", 23, ""], ["X", "ftp", 21, ""], ["X", "www", 80, ""], ["", "ssh", 22, "10.0.0.0/24,10.0.9.0/24"], ["X", "www-ssl", 443, ""], ["X", "api", 8728, ""], ["", "winbox", 8291, "10.0.0.0/24"], ["X", "api-ssl", 8729, ""]]
+      .map(p => ({ flags: p[0], f: { name: p[1], port: p[2], address: p[3], certificate: p[4], _disabled: p[0] ? "yes" : "no" } })) }),
+  "ip ipsec active-peers": () => ({ flags: "R - RESPONDER, N - NATT-PEER", cols: [{ h: "ID", k: "id" }, { h: "STATE", k: "state" }, { h: "UPTIME", k: "uptime" }, { h: "PH2-TOTAL", k: "ph2-total", r: 1 }, { h: "REMOTE-ADDRESS", k: "remote-address" }],
+    rows: [{ flags: "", f: { id: "office", state: "established", uptime: "2h14m", "ph2-total": 1, "remote-address": "203.0.113.10" } }] }),
+  "ip ipsec installed-sa": () => ({ flags: "S - SEEN-TRAFFIC; E - ESP", cols: [{ h: "SPI", k: "spi" }, { h: "STATE", k: "state" }, { h: "SRC-ADDRESS", k: "src-address" }, { h: "DST-ADDRESS", k: "dst-address" }, { h: "AUTH-ALGORITHM", k: "auth-algorithm" }, { h: "ENC-ALGORITHM", k: "enc-algorithm" }],
+    rows: [["SE", "0x9A1B2C3", "198.51.100.23", "203.0.113.10"], ["SE", "0xC4D5E6F", "203.0.113.10", "198.51.100.23"]]
+      .map(p => ({ flags: p[0], f: { spi: p[1], state: "mature", "src-address": p[2], "dst-address": p[3], "auth-algorithm": "sha256", "enc-algorithm": "aes-cbc" } })) }),
+  "ip ipsec peer": () => ({ flags: "X - DISABLED; D - DYNAMIC; R - RESPONDER", cols: [{ h: "NAME", k: "name" }, { h: "ADDRESS", k: "address" }, { h: "PROFILE", k: "profile" }, { h: "EXCHANGE-MODE", k: "exchange-mode" }],
+    rows: [{ f: { name: "office", address: "203.0.113.10/32", profile: "default", "exchange-mode": "ike2" } }] }),
+  "ip ipsec policy": () => ({ flags: "T - TEMPLATE; B - BACKUP; X - DISABLED; D - DYNAMIC; I - INVALID; A - ACTIVE; * - DEFAULT", cols: [{ h: "PEER", k: "peer" }, { h: "TUNNEL", k: "tunnel" }, { h: "SRC-ADDRESS", k: "src-address" }, { h: "DST-ADDRESS", k: "dst-address" }, { h: "ACTION", k: "action" }, { h: "PH2-COUNT", k: "ph2-count", r: 1 }],
+    rows: [{ flags: "T*", f: { peer: "", tunnel: "", "src-address": "::/0", "dst-address": "::/0", action: "", "ph2-count": "" } },
+      { flags: "A", f: { peer: "office", tunnel: "yes", "src-address": "10.0.0.0/24", "dst-address": "192.168.50.0/24", action: "encrypt", "ph2-count": 1 } }] }),
+  "ip ipsec identity": () => ({ flags: "D - DYNAMIC; X - DISABLED", cols: [{ h: "PEER", k: "peer" }, { h: "AUTH-METHOD", k: "auth-method" }, { h: "CERTIFICATE", k: "certificate" }, { h: "REMOTE-CERTIFICATE", k: "remote-certificate" }],
+    rows: [{ f: { peer: "office", "auth-method": "digital-signature", certificate: "vpn-home", "remote-certificate": "vpn-office" } }] }),
+  "certificate": () => ({ flags: "K - PRIVATE-KEY; L - CRL; A - AUTHORITY; I - ISSUED; T - TRUSTED", cols: [{ h: "NAME", k: "name" }, { h: "COMMON-NAME", k: "common-name" }, { h: "DAYS-VALID", k: "days-valid", r: 1 }],
+    rows: [["KLAT", "ca-home", "ca-home", 3650, "2035-09-01"], ["KIT", "vpn-home", "vpn.home.lan", 365, "2027-09-01"], ["T", "vpn-office", "vpn.office.example", 365, "2027-03-15"], ["KIT", "www-ssl", "10.0.0.254", 365, "2026-10-02"]]
+      .map(p => ({ flags: p[0], f: { name: p[1], "common-name": p[2], "days-valid": p[3], "invalid-after": p[4] + " 10:00:00", fingerprint: "5f1c…a93e (скорочено)" } })) })
+};
+const KV_MENUS = {
+  "system resource": () => [["uptime", "3d12h4m10s"], ["version", "7.19.4 (stable)"], ["free-memory", "892.4MiB"], ["total-memory", "1024.0MiB"], ["cpu", "ARMv7"], ["cpu-count", "4"], ["cpu-frequency", "1400MHz"], ["cpu-load", "4%"], ["free-hdd-space", "412.8MiB"], ["total-hdd-space", "512.0MiB"], ["architecture-name", "arm"], ["board-name", "RB4011iGS+5HacQ2HnD"], ["platform", "MikroTik"]],
+  "system routerboard": () => [["routerboard", "yes"], ["model", "RB4011iGS+5HacQ2HnD"], ["serial-number", "D4E60F3A9C21"], ["firmware-type", "al2"], ["factory-firmware", "6.44.6"], ["current-firmware", "7.19.4"], ["upgrade-firmware", "7.19.4"]],
+  "system clock": () => [["time", "14:05:12"], ["date", "2026-09-18"], ["time-zone-autodetect", "yes"], ["time-zone-name", "Europe/Kyiv"], ["gmt-offset", "+03:00"], ["dst-active", "yes"]],
+  "system identity": () => [["name", ROUTER.identity]],
+  "ip dns": () => [["servers", ROUTER.dns], ["dynamic-servers", "198.51.100.53"], ["use-doh-server", ""], ["allow-remote-requests", "yes"], ["cache-size", "2048KiB"], ["cache-used", "112KiB"]],
+  "ip ssh": () => [["forwarding-enabled", "no"], ["always-allow-password-login", "no"], ["strong-crypto", "yes"], ["allow-none-crypto", "no"], ["host-key-size", "2048"], ["host-key-type", "rsa"]],
+  "ip ipsec statistics": () => [["in-errors", "0"], ["in-buffer-errors", "0"], ["in-header-errors", "0"], ["in-no-states", "0"], ["in-state-protocol-errors", "0"], ["in-no-policy", "0"], ["in-policy-blocked", "0"], ["out-errors", "0"], ["out-no-states", "0"], ["out-policy-blocked", "0"]]
+};
+const LOG = [
+  ["2026-09-18 09:12:40", "system,info,account", "user Stas logged in from 10.0.0.42 via winbox"],
+  ["2026-09-18 11:40:03", "interface,info", "ether4 link down"],
+  ["2026-09-18 12:15:21", "ipsec,info", "office: IKE SA established (ike2), peer 203.0.113.10"],
+  ["2026-09-18 13:02:47", "firewall,info", "drop-wan input: in:ether1 out:(unknown 0), proto TCP (SYN), 203.0.113.66:51522->198.51.100.23:22, len 60"],
+  ["2026-09-18 13:40:10", "dhcp,info", "defconf assigned 10.0.0.50 for 3C:22:FB:10:AA:50 iPhone"],
+  ["2026-09-18 13:58:02", "system,info,account", "user Stas logged in from 10.0.0.42 via ssh"],
+  ["2026-09-18 13:59:30", "system,info", "dns changed by ssh:Stas@10.0.0.42 (/ip dns set servers=1.1.1.1)"]
+];
+const SUBMENUS = {
+  "": ["certificate", "file", "interface", "ip", "ipv6", "log", "routing", "system", "tool", "user", "export", "import", "ping", "quit", "redo", "undo"],
+  "ip": ["address", "arp", "dhcp-client", "dhcp-server", "dns", "firewall", "ipsec", "neighbor", "route", "service", "ssh"],
+  "interface": ["bridge", "ethernet", "list", "vlan", "wifi", "wireguard", "print", "set", "enable", "disable", "monitor-traffic"],
+  "system": ["backup", "clock", "history", "identity", "package", "resource", "routerboard", "reboot", "reset-configuration"],
+  "tool": ["ping", "profile", "torch", "traceroute"],
+  "ip firewall": ["address-list", "connection", "filter", "nat"],
+  "ip ipsec": ["active-peers", "identity", "installed-sa", "peer", "policy", "profile", "proposal", "statistics"],
+  "user": ["active", "group", "ssh-keys", "print"],
+  "certificate": ["print", "export", "export-certificate", "import", "sign"]
+};
+
+/* ---------- стан інтерфейсу ---------- */
+const state = {
+  currentModule: "basics",
+  history: [], histIdx: 0,
+  triedByModule: Object.fromEntries(Object.keys(MODULES).map(k => [k, new Set()])),
+  testMode: { active: false, queue: [], index: 0, correct: 0, wrong: 0, answered: false }
+};
+function saveProgress() {
+  try {
+    const tried = {};
+    Object.keys(state.triedByModule).forEach(k => { tried[k] = [...state.triedByModule[k]]; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, module: state.currentModule, tried }));
+  } catch (e) { /* сховище недоступне — прогрес лише в цій сесії */ }
+}
+function loadProgress() {
+  let data = null;
+  try { data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch (e) { data = null; }
+  if (!data || typeof data !== "object") return;
+  if (data.tried && typeof data.tried === "object") {
+    Object.keys(MODULES).forEach(k => {
+      const list = Array.isArray(data.tried[k]) ? data.tried[k] : [];
+      list.forEach(c => { if (MODULES[k].commands.includes(c)) state.triedByModule[k].add(c); });
+    });
+  }
+  if (data.module && MODULES[data.module]) state.currentModule = data.module;
+}
+
+const $ = id => document.getElementById(id);
+const livePanel = $("livePanel"), outputStatus = $("outputStatus"), cmdInput = $("cmdInput");
+const progressBar = $("progressBar"), progressText = $("progressText"), cmdChecklist = $("cmdChecklist");
+const moduleBadge = $("moduleBadge"), moduleNav = $("moduleNav"), promptLabel = $("promptLabel");
+let viewChunks = [];
+
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function getModule() { return MODULES[state.currentModule]; }
+function getCurrentCommands() { return getModule().commands; }
+function getTried() { return state.triedByModule[state.currentModule]; }
+function promptText() { return `[Stas@${ROUTER.identity}] ${ROUTER.safe ? "<SAFE>" : ">"}`; }
+function updatePrompt() {
+  promptLabel.textContent = promptText();
+  $("termTitle").textContent = `Stas@${ROUTER.identity} · RouterOS 7 · ${getModule().title}`;
+  $("safeBadge").hidden = !ROUTER.safe;
+  $("btnSafe").setAttribute("aria-pressed", ROUTER.safe ? "true" : "false");
+  $("btnSafe").textContent = ROUTER.safe ? "Вийти з Safe Mode (Ctrl+X)" : "Safe Mode (Ctrl+X)";
+}
+
+function beginView(cmd) {
+  viewChunks = [];
+  if (cmd != null) viewChunks.push(`<div class="line-user">${esc(promptText())} ${esc(cmd)}</div>`);
+}
+function print(html) { viewChunks.push(html); }
+function printResult(title, body, type = "ok", hint = null) {
+  const cls = { warn: "result-box warn", purple: "result-box purple", danger: "result-box danger" }[type] || "result-box";
+  const hintHtml = hint ? `<div class="line-uk-hint">${esc(hint)}</div>` : "";
+  viewChunks.push(`<div class="${cls}"><div class="result-title">${esc(title)}</div>${body}${hintHtml}</div>`);
+}
+function pre(text, cls) { return `<pre class="${cls || ""}">${esc(text)}</pre>`; }
+function flushView(status) {
+  livePanel.innerHTML = viewChunks.join("");
+  livePanel.scrollTop = 0;
+  if (status) outputStatus.textContent = status;
+}
+
+/* ---------- емулятор RouterOS ---------- */
+const VERBS = new Set(["print", "add", "set", "remove", "enable", "disable", "export", "monitor-traffic", "monitor", "find", "reset",
+  "reset-counters", "move", "import", "save", "load", "comment", "edit", "unset", "sign", "export-certificate", "reboot", "shutdown",
+  "reset-configuration", "upgrade", "uninstall", "flush", "release", "renew", "make-static"]);
+const DANGER = [
+  [c => /^\/system reset-configuration/.test(c), "Скидає ВСЮ конфігурацію роутера (адреси, firewall, VPN, користувачів) і перезавантажує його. Віддалено ти втратиш доступ.", "Спершу `/export file=…` і `/system backup save name=…`, забери файли на комп'ютер. Скидай лише з фізичним доступом до роутера."],
+  [c => /^\/import( |$)/.test(c), "Виконує всі команди з файлу .rsc підряд — одна помилка у файлі може зламати мережу чи VPN.", "Спершу переглянь файл, зроби бекап, увімкни Safe Mode (Ctrl+X) і застосовуй зміни невеликими частинами."],
+  [c => /^\/system (reboot|shutdown)/.test(c), "Перезавантаження/вимкнення обриває всі з'єднання; shutdown віддалено не скасуєш.", "Перевір, що зміни збережено й бекап є; плануй перезавантаження, коли мережею ніхто не користується."],
+  [c => / remove( |$)/.test(c), "Видалення об'єкта (правила, адреси, маршруту, користувача, сертифіката) діє одразу; у firewall це може відкрити мережу або відрізати доступ.", "Спершу `print detail` і `/export`, вмикай Safe Mode (Ctrl+X); замість видалення правила можна тимчасово `disable` його."],
+  [c => / move( |$)/.test(c), "Зміна порядку правил firewall змінює, який трафік пропускається — можна відкрити доступ або заблокувати керування.", "Safe Mode (Ctrl+X), `print` до і після, одна зміна за раз."],
+  [c => / reset( |$)/.test(c) && !/reset-counters/.test(c), "`reset` повертає параметри меню до заводських — наслідки залежать від меню й часто ламають зв'язок.", "Спершу `/export` потрібного меню, потім точкова зміна через `set`."],
+  [c => /^\/certificate export-certificate/.test(c), "Може вивантажити приватний ключ — це секрет, а не просто файл.", "Експортуй з надійною export-passphrase, передавай лише захищеним каналом і видали файл з роутера після копіювання."],
+  [c => /^\/ip service (set|disable|enable)/.test(c), "Зміна сервісів керування (ssh, winbox) може відрізати тобі доступ до роутера.", "Safe Mode (Ctrl+X), перевір, через який сервіс ти зараз підключений (`/user active print`), змінюй інший."],
+  [c => /^\/user (set|add|disable)/.test(c), "Зміна користувачів і прав може залишити тебе без доступу або дати зайвий доступ іншим.", "Спершу створи й перевір новий обліковий запис в окремій сесії, лише потім змінюй старий."],
+  [c => /^\/system package (disable|uninstall|downgrade)/.test(c), "Вимкнення/видалення пакета прибирає функції (Wi‑Fi, контейнери) після перезавантаження.", "Перевір `/system package print`, зроби бекап; видаляй лише те, що точно не використовується."]
+];
+
+function parse(c) {
+  const toks = c.slice(1).split(" ").filter(Boolean);
+  let vi = toks.findIndex(t => VERBS.has(t));
+  const path = vi < 0 ? toks : toks.slice(0, vi);
+  return { toks, path: path.join(" "), verb: vi < 0 ? null : toks[vi], args: vi < 0 ? [] : toks.slice(vi + 1) };
+}
+function whereFilter(rows, expr) {
+  const m = expr.match(/^([\w-]+)(!=|=|~)"?([^"]*)"?$/);
+  if (!m) return null;
+  const key = m[1], op = m[2], val = m[3].toLowerCase();
+  return rows.filter(r => {
+    let v = r.f[key] ?? r.f["_" + key];
+    if (v === undefined) return false;
+    v = String(v).toLowerCase();
+    if (op === "~") { try { return new RegExp(val).test(v); } catch (e) { return v.includes(val); } }
+    return op === "=" ? v === val : v !== val;
+  });
+}
+function doPrint(path, args, raw) {
+  let det = false, follow = false, where = null, countOnly = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "detail") det = true;
+    else if (a === "follow" || a === "follow-only") follow = true;
+    else if (a === "count-only") countOnly = true;
+    else if (a === "without-paging" || a === "brief") { /* ok */ }
+    else if (a === "where") { where = args.slice(i + 1).join(" "); break; }
+    else return { error: `expected end of command (line 1 column ${raw.toLowerCase().indexOf(a) + 1})`, bad: a };
+  }
+  if (path === "log") {
+    let rows = LOG.map(l => ({ f: { time: l[0], topics: l[1], message: l[2] } }));
+    if (where) { const fr = whereFilter(rows, where); if (!fr) return { unsupported: where }; rows = fr; }
+    if (countOnly) return { text: String(rows.length) };
+    let text = rows.map(r => `${r.f.time} ${r.f.topics} ${r.f.message}`).join("\n");
+    if (follow) text += "\n-- [Q quit|D dump|C-z pause]";
+    return { text, follow };
+  }
+  if (KV_MENUS[path]) {
+    if (where) return { unsupported: where };
+    return { text: kv(KV_MENUS[path]()) };
+  }
+  if (path === "file") {
+    const rows = ROUTER.files.map(f => ({ f: { name: f.name, type: f.type, size: f.size, "last-modified": f.date || "2026-09-01 10:00:00" } }));
+    return { text: table("", [{ h: "NAME", k: "name" }, { h: "TYPE", k: "type" }, { h: "SIZE", k: "size", r: 1 }, { h: "LAST-MODIFIED", k: "last-modified" }], rows) };
+  }
+  if (path === "system history") {
+    const rows = ROUTER.changes.filter(ch => ch.state !== "gone").slice().reverse()
+      .map(ch => ({ flags: (ch.state === "U" ? "U" : "R") + (ch.safe && ROUTER.safe ? "F" : ""), f: { action: ch.action, by: "Stas", policy: "write" } }));
+    return { text: table("U - UNDOABLE, R - REDOABLE, F - FLOATING-UNDO", [{ h: "ACTION", k: "action" }, { h: "BY", k: "by" }, { h: "POLICY", k: "policy" }], rows) };
+  }
+  if (path === "system package") {
+    const rows = [["routeros", "12.9MiB"], ["wifi-qcom-ac", "3.3MiB"]].map(p => ({ f: { name: p[0], version: "7.19.4", "build-time": "2026-08-20 09:14:22", size: p[1] } }));
+    return { text: table("", [{ h: "NAME", k: "name" }, { h: "VERSION", k: "version" }, { h: "BUILD-TIME", k: "build-time" }, { h: "SIZE", k: "size", r: 1 }], rows) };
+  }
+  const def = MENUS[path];
+  if (!def) return null;
+  const d = def();
+  let rows = d.rows.map((r, i) => Object.assign({ id: i }, r));
+  if (where) { const fr = whereFilter(rows, where); if (!fr) return { unsupported: where }; rows = fr; }
+  if (countOnly) return { text: String(rows.length) };
+  if (det || d.props) {
+    if (det && d.props) rows = rows.map(r => Object.assign({}, r, { f: Object.assign({}, r.f, { log: "no", "log-prefix": "" }) }));
+    return { text: detail(d.flags, rows) };
+  }
+  return { text: table(d.flags, d.cols, rows) };
+}
+
+function unknown(raw, c, hint) {
+  const toks = c.slice(1).split(" ").filter(Boolean);
+  const extra = ["log", "file", "system history", "system package", "system backup", "tool ping", "tool traceroute", "tool torch", "tool profile"];
+  let bad = toks[toks.length - 1] || "";
+  for (let i = 0; i < toks.length; i++) {
+    const pathTo = toks.slice(0, i + 1).join(" "), parent = toks.slice(0, i).join(" ");
+    const known = (SUBMENUS[parent] && SUBMENUS[parent].includes(toks[i])) || MENUS[pathTo] || KV_MENUS[pathTo] || SUBMENUS[pathTo] || extra.includes(pathTo) || (i > 0 && VERBS.has(toks[i]));
+    if (!known) { bad = toks[i]; break; }
+    if (i > 0 && VERBS.has(toks[i])) { bad = toks[i + 1] || toks[i]; break; }
+  }
+  const col = raw.toLowerCase().indexOf(bad) + 1;
+  printResult("Невідома команда", `${pre(`bad command name ${bad} (line 1 column ${col > 0 ? col : 1})`, "line-err")}`, "warn",
+    hint || "Такої команди тренажер не знає. Натисни команду в списку зліва або перевір шлях меню (на справжньому роутері допоможуть Tab і F1). Справжній RouterOS приймає й однозначні скорочення (/ip addr pr), але тренажер вимагає повні слова.");
+  return false;
+}
+
+function emulate(raw) {
+  const c = canonical(raw);
+  const hint = UK_HINTS[allCommands().find(x => matches(raw, x))] || null;
+  if (c === "/safe-mode") {
+    applySafeToggle();
+    return "ok";
+  }
+  if (c === "/") {
+    printResult("Кореневе меню (F1 / Tab на справжньому роутері)", pre(SUBMENUS[""].join("  ")), "ok", "Шлях меню пишуть через пробіл або «/»: /ip address print = /ip/address/print.");
+    return "info";
+  }
+  for (const [test, what, safer] of DANGER) {
+    if (test(c)) {
+      printResult("Небезпечна команда — тренажер її не виконує", `<span class="line-err">${esc(what)}</span><br><span class="line-ok">Безпечніше: ${esc(safer)}</span>`, "danger");
+      return false;
+    }
+  }
+  const p = parse(c);
+  const t = p.toks;
+
+  // службові команди кореня
+  if (t[0] === "export" && p.path === "") {
+    const f = p.args.find(a => a.startsWith("file="));
+    if (p.args.length && !f && !p.args.every(a => ["terse", "verbose", "compact", "show-sensitive"].includes(a))) return unknown(raw, c);
+    if (f) {
+      const name = f.slice(5).replace(/"/g, "").replace(/\.rsc$/, "") + ".rsc";
+      if (!ROUTER.files.find(x => x.name === name)) ROUTER.files.push({ name, type: ".rsc file", size: "5.1KiB", date: "2026-09-18 14:05:40" });
+      printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="line-ok">Файл ${esc(name)} з'явився в /file print</span>`, "ok", hint || "Текстовий експорт конфігурації. Паролі користувачів і ключі в нього не потрапляють.");
+    } else {
+      printResult(raw, pre(`# 2026-09-18 14:05:40 by RouterOS 7.19.4\n# model = RB4011iGS+5HacQ2HnD\n/interface bridge\nadd admin-mac=48:A9:8A:10:20:02 auto-mac=no comment=defconf name=bridge\n/ip address\nadd address=10.0.0.254/24 comment=defconf interface=bridge network=10.0.0.0\n/ip dns\nset allow-remote-requests=yes servers=${ROUTER.dns}\n/system identity\nset name=${ROUTER.identity}\n# … (скорочено)`), "ok", "Без file= експорт друкується на екран — зручно, щоб швидко подивитися конфігурацію.");
+    }
+    return "ok";
+  }
+  if (t[0] === "system" && t[1] === "backup" && p.verb === "save") {
+    const n = p.args.find(a => a.startsWith("name="));
+    const name = (n ? n.slice(5).replace(/"/g, "").replace(/\.backup$/, "") : "RB4011-20260918-1405") + ".backup";
+    if (!ROUTER.files.find(x => x.name === name)) ROUTER.files.push({ name, type: "backup", size: "48.3KiB", date: "2026-09-18 14:05:52" });
+    printResult(raw, pre("Configuration backup saved"), "ok", hint || "Бінарний бекап — для відновлення на цьому ж роутері. Без password= файл не шифрується: зберігай його як секрет.");
+    return "ok";
+  }
+  if (t[0] === "undo" || t[0] === "redo") {
+    if (t.length > 1) return unknown(raw, c);
+    const isUndo = t[0] === "undo";
+    const list = ROUTER.changes.filter(ch => ch.state === (isUndo ? "U" : "R"));
+    const ch = isUndo ? list[list.length - 1] : list[0];
+    if (!ch) {
+      printResult(raw, `<span class="line-muted">${isUndo ? "Немає змін, які можна скасувати." : "Немає скасованих змін для повторення."}</span>`, "warn", "Подивись /system history print.");
+      return "ok";
+    }
+    if (isUndo) { ch.undo(); ch.state = "R"; } else { ch.redo(); ch.state = "U"; }
+    printResult(raw, `<span class="line-ok">${isUndo ? "Скасовано" : "Повторено"}: ${esc(ch.action)}</span>`, "ok", hint);
+    updatePrompt();
+    return "ok";
+  }
+  if (t[0] === "ping" || (t[0] === "tool" && t[1] === "ping")) {
+    const args = t[0] === "ping" ? t.slice(1) : t.slice(2);
+    let host = null, count = null;
+    for (const a of args) {
+      if (a.startsWith("address=")) host = a.slice(8);
+      else if (a.startsWith("count=")) count = parseInt(a.slice(6), 10);
+      else if (/^[\d.]+$|^[a-z0-9.-]+\.[a-z]{2,}$/.test(a) && !host) host = a;
+      else return unknown(raw, c);
+    }
+    if (!host) return unknown(raw, c, "Кому пінгувати? Додай адресу: /ping 8.8.8.8 count=4.");
+    const n = count && count > 0 ? Math.min(count, 10) : 5;
+    const lines = ["  SEQ HOST                                     SIZE TTL TIME       STATUS"];
+    for (let i = 0; i < n; i++) lines.push(`${pad(i, 5, true)} ${pad(host, 40)} ${pad(56, 4, true)} ${pad(117, 3, true)} ${pad("12ms" + (100 + i * 37) + "us", 10)}`);
+    lines.push(`    sent=${n} received=${n} packet-loss=0% min-rtt=12ms100us avg-rtt=12ms174us max-rtt=12ms248us`);
+    printResult(raw, pre(lines.join("\n")) + (count ? "" : `<span class="line-warn">Без count= справжній /ping не зупиняється сам — Ctrl+C.</span>`), "ok", hint);
+    return "ok";
+  }
+  if (t[0] === "tool") {
+    if (t[1] === "traceroute") {
+      const a = t.slice(2); const host = (a[0] || "").replace("address=", "");
+      if (!host || a.length > 1) return unknown(raw, c, "Приклад: /tool traceroute 8.8.8.8");
+      const text = `Columns: ADDRESS, LOSS, SENT, LAST, AVG, BEST, WORST, STD-DEV\n#  ADDRESS        LOSS  SENT  LAST    AVG   BEST  WORST  STD-DEV\n1  198.51.100.1   0%       3  1.2ms   1.3   1.1   1.5    0.2\n2  203.0.113.1    0%       3  4.8ms   5.0   4.7   5.4    0.3\n3  ${pad(host, 13)}  0%       3  12.1ms  12.0  11.8  12.3   0.2`;
+      printResult(raw, pre(text), "ok", hint);
+      return "ok";
+    }
+    if (t[1] === "torch") {
+      const a = t.slice(2); const ifn = (a[0] || "").replace("interface=", "");
+      if (!ifn || a.length > 1) return unknown(raw, c, "Torch потребує інтерфейс: /tool torch interface=ether1");
+      if (!ifaceByName(ifn)) return unknown(raw, c, `Інтерфейсу ${ifn} немає. Подивись /interface print.`);
+      const text = `Columns: ETH-PROTO, PROTOCOL, SRC-ADDRESS, DST-ADDRESS, TX, RX\nETH-PROTO  PROTOCOL  SRC-ADDRESS    DST-ADDRESS    TX         RX\nipv4       tcp       198.51.100.23  140.82.121.4   48.2kbps   2.1Mbps\nipv4       udp       198.51.100.23  1.1.1.1        1.1kbps    2.4kbps\nipv4       udp       198.51.100.23  203.0.113.10   310.5kbps  280.7kbps\n-- [Q quit|D dump|C-z pause]`;
+      printResult(raw, pre(text), "ok", (hint || "") + " Torch оновлюється наживо, доки не натиснеш Q або Ctrl+C.");
+      return "ok";
+    }
+    if (t[1] === "profile" && t.length === 2) {
+      printResult(raw, pre("Columns: NAME, CPU, USAGE\nNAME         CPU  USAGE\nethernet     all  0.5%\nnetworking   all  1.5%\nmanagement   all  1%\nfirewall     all  0.5%\nprofiling    all  0.5%\nidle         all  96%\ntotal        all  4%\n-- [Q quit|D dump|C-z pause]"), "ok", hint);
+      return "ok";
+    }
+    return unknown(raw, c);
+  }
+  if (t[0] === "quit" && t.length === 1) {
+    printResult(raw, pre("interrupted"), "warn", "На справжньому роутері сесія закрилась би. Увага: /quit не скасовує зміни Safe Mode, а Ctrl+D — скасовує. У тренажері можна продовжувати.");
+    return "ok";
+  }
+
+  // зміни конфігурації, які емулятор підтримує
+  if (p.path === "interface" && (p.verb === "disable" || p.verb === "enable" || p.verb === "set")) {
+    let name = null, want = p.verb === "disable";
+    if (p.verb === "set") {
+      name = p.args[0]; const d = p.args.find(a => a.startsWith("disabled="));
+      if (!d || p.args.length !== 2) return unknown(raw, c, "Тренажер підтримує лише: /interface set ether5 disabled=yes|no");
+      want = d.slice(9) === "yes";
+    } else {
+      if (p.args.length !== 1) return unknown(raw, c);
+      name = p.args[0].replace("numbers=", "");
+    }
+    const i = ifaceByName(name);
+    if (!i) { printResult(raw, pre(`no such item (line 1 column ${raw.toLowerCase().lastIndexOf(name) + 1})`, "line-err"), "warn", "Такого інтерфейсу немає. Подивись /interface print."); return false; }
+    const before = i.disabled;
+    i.disabled = want;
+    recordChange(`interface ${name} ${want ? "disabled" : "enabled"}`, () => { i.disabled = before; }, () => { i.disabled = want; });
+    let note = "";
+    if (want && ["ether1"].includes(name)) note = "ether1 — це WAN: роутер щойно втратив інтернет.";
+    if (want && ["bridge", "ether2"].includes(name)) note = "Ти підключений через bridge/ether2 — на справжньому роутері сесія б обірвалась (self-lockout). Ось навіщо Safe Mode.";
+    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="${want ? "line-warn" : "line-ok"}">${esc(name)}: ${want ? "вимкнено" : "увімкнено"}</span>` + (note ? `<br><span class="line-err">${esc(note)}</span>` : ""), want ? "warn" : "ok",
+      hint || (ROUTER.safe ? "Safe Mode увімкнено: якщо зв'язок обірветься, ця зміна відкотиться." : "Зміна діє одразу. Перевір результат: /interface print."));
+    return "ok";
+  }
+  if (p.path === "ip address" && p.verb === "add") {
+    const a = p.args.find(x => x.startsWith("address=")), f = p.args.find(x => x.startsWith("interface="));
+    if (!a || !f || p.args.length !== 2) return unknown(raw, c, "Потрібні обидва параметри: address=10.0.1.1/24 interface=ether5");
+    const addr = a.slice(8), ifn = f.slice(10);
+    if (!/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(addr)) { printResult(raw, pre("invalid value for argument address", "line-err"), "warn", "Формат: 10.0.1.1/24"); return false; }
+    if (!ifaceByName(ifn)) { printResult(raw, pre(`input does not match any value of interface`, "line-err"), "warn", "Такого інтерфейсу немає. Подивись /interface print."); return false; }
+    if (ROUTER.addresses.find(x => x.address === addr)) { printResult(raw, pre("failure: already have such address", "line-err"), "warn", "Така адреса вже є — /ip address print."); return false; }
+    const oct = addr.split("/")[0].split(".").map(Number), bits = +addr.split("/")[1];
+    const net = bits === 24 ? `${oct[0]}.${oct[1]}.${oct[2]}.0` : addr.split("/")[0];
+    const rec = { address: addr, network: net, interface: ifn, dynamic: false };
+    ROUTER.addresses.push(rec);
+    recordChange(`address ${addr} added`, () => { ROUTER.addresses = ROUTER.addresses.filter(x => x !== rec); }, () => { ROUTER.addresses.push(rec); });
+    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="line-ok">Адреса ${esc(addr)} на ${esc(ifn)} — перевір /ip address print</span>`, "ok", hint);
+    return "ok";
+  }
+  if (p.path === "ip dns" && p.verb === "set") {
+    const s = p.args.find(x => x.startsWith("servers="));
+    if (!s || p.args.length !== 1) return unknown(raw, c, "Тренажер підтримує: /ip dns set servers=1.1.1.1,8.8.8.8");
+    const val = s.slice(8).replace(/"/g, "");
+    if (!/^[\d.,]+$/.test(val)) { printResult(raw, pre("invalid value for argument servers", "line-err"), "warn"); return false; }
+    const before = ROUTER.dns;
+    ROUTER.dns = val;
+    recordChange("dns changed", () => { ROUTER.dns = before; }, () => { ROUTER.dns = val; });
+    printResult(raw, `<span class="line-muted">(RouterOS мовчить при успіху)</span><br><span class="line-ok">servers: ${esc(val)} — перевір /ip dns print</span>`, "ok", hint);
+    return "ok";
+  }
+  if (p.path === "interface" && p.verb === "monitor-traffic") {
+    const ifn = (p.args[0] || "").replace("interface=", "");
+    if (!ifn || p.args.length !== 1 || !ifaceByName(ifn)) return unknown(raw, c, "Приклад: /interface monitor-traffic ether1");
+    printResult(raw, pre(kv([["name", ifn], ["rx-packets-per-second", "1 204"], ["rx-bits-per-second", "12.4Mbps"], ["tx-packets-per-second", "812"], ["tx-bits-per-second", "1.1Mbps"]]) + "\n-- [Q quit|D dump|C-z pause]"), "ok", hint);
+    return "ok";
+  }
+  if (p.path === "certificate" && p.verb === "export" && !p.args.length) {
+    printResult(raw, pre(`# 2026-09-18 14:07:03 by RouterOS 7.19.4\n# model = RB4011iGS+5HacQ2HnD\n/certificate settings\nset crl-download=no crl-use=no`), "ok", hint);
+    return "ok";
+  }
+  if (p.verb === "print") {
+    const r = doPrint(p.path, p.args, raw);
+    if (r === null) return unknown(raw, c);
+    if (r.error) { printResult(raw, pre(r.error, "line-err"), "warn", "Такого параметра print тренажер не знає. Підтримуються: detail, where, follow, count-only."); return false; }
+    if (r.unsupported) { printResult(raw, pre("(емулятор не вміє такий фільтр)", "line-warn"), "warn", "Тренажер фільтрує лише прості умови: ключ=значення, ключ!=значення, ключ~\"текст\"."); return false; }
+    printResult(raw, pre(r.text || "(порожньо)"), "ok", (hint || "") + (r.follow ? " follow показує нові записи наживо; вихід — Q або Ctrl+C." : ""));
+    return "ok";
+  }
+  if (!p.verb && (SUBMENUS[p.path] || MENUS[p.path] || KV_MENUS[p.path])) {
+    const subs = SUBMENUS[p.path];
+    printResult(`/${p.path}`, (subs ? pre(subs.join("  ")) : "") + `<span class="line-muted">Сама назва меню на справжньому роутері переводить у це меню (запрошення /${esc(p.path.replace(/ /g, "/"))}>). Тренажер працює лише з повними шляхами — додай дію, напр. print.</span>`, "purple");
+    return "info";
+  }
+  if (p.verb && (MENUS[p.path] || KV_MENUS[p.path] || SUBMENUS[p.path])) {
+    printResult(raw, `<span class="line-warn">Тренажер не виконує «${esc(p.verb)}» у цьому меню.</span>`, "warn", "Зміни, які підтримує емулятор: /interface disable|enable|set, /ip address add, /ip dns set. Решту спершу перевір через print.");
+    return false;
+  }
+  return unknown(raw, c);
+}
+
+/* ---------- Safe Mode ---------- */
+function toggleSafe() {
+  beginView(null);
+  applySafeToggle();
+  flushView(`${promptText()} · Safe Mode ${ROUTER.safe ? "увімкнено" : "вимкнено"}`);
+}
+
+// Shared by Ctrl+X / F4 / the button and by the /safe-mode command.
+function applySafeToggle() {
+  if (!ROUTER.safe) {
+    ROUTER.safe = true; ROUTER.safeMark = ROUTER.changes.length;
+    ROUTER.changes.forEach(ch => { ch.safe = false; });
+    printResult("[Safe Mode taken]", `<span class="line-ok">Запрошення тепер ${esc(promptText())}</span>`, "ok",
+      "Зміни, зроблені далі, автоматично відкотяться, якщо сесія обірветься. Ctrl+X ще раз — вийти й зберегти зміни. Історія Safe Mode тримає до 100 дій — працюй малими кроками.");
+  } else {
+    ROUTER.safe = false;
+    ROUTER.changes.forEach(ch => { ch.safe = false; });
+    printResult("Safe Mode вимкнено", `<span class="line-ok">Зміни збережено.</span>`, "ok", "Тепер обрив зв'язку їх уже не відкотить.");
+  }
+  updatePrompt();
+}
+function dropConnection() {
+  beginView(null);
+  if (ROUTER.safe) {
+    const rolled = ROUTER.changes.filter(ch => ch.safe && ch.state === "U");
+    rolled.slice().reverse().forEach(ch => { ch.undo(); ch.state = "gone"; });
+    ROUTER.changes = ROUTER.changes.filter(ch => ch.state !== "gone");
+    ROUTER.safe = false;
+    printResult("Зв'язок обірвався — Safe Mode спрацював", `<span class="line-ok">Відкочено змін: ${rolled.length}</span><br>${rolled.map(ch => `<span class="line-muted">↶ ${esc(ch.action)}</span>`).join("<br>")}`, "ok",
+      "На справжньому роутері відкат стається після тайм-ауту TCP (до ~9 хвилин). Ти знову підключився — конфігурація як до Safe Mode.");
+  } else {
+    printResult("Зв'язок обірвався без Safe Mode", `<span class="line-err">Усі зміни лишилися на роутері.</span>`, "danger",
+      "Якщо обрив спричинила твоя ж зміна (firewall, вимкнений порт), доступ повернеться лише через інший порт, MAC-доступ WinBox або фізичну консоль. Перед ризиковими змінами — Ctrl+X.");
+  }
+  updatePrompt();
+  flushView(`${promptText()} · перепідключено`);
+}
+
+/* ---------- чекліст і розділи ---------- */
+function updateProgress() {
+  const cmds = getCurrentCommands();
+  const n = cmds.filter(c => getTried().has(c)).length;
+  moduleBadge.textContent = getModule().title;
+  progressBar.style.width = cmds.length ? `${(n / cmds.length) * 100}%` : "0%";
+  progressText.textContent = `${n} / ${cmds.length} команд` + (n === cmds.length ? " — розділ пройдено!" : "");
+  cmdChecklist.querySelectorAll("button[data-cmd]").forEach(b => {
+    const done = getTried().has(b.dataset.cmd);
+    b.parentElement.classList.toggle("done", done);
+    b.setAttribute("aria-label", b.dataset.cmd + (done ? " — виконано" : " — ще не виконано") + ". Вставити в поле вводу");
+  });
+  updatePrompt();
+}
+function updateModuleNav() {
+  moduleNav.innerHTML = Object.values(MODULES).map(mod => {
+    const t = mod.commands.filter(c => state.triedByModule[mod.id].has(c)).length;
+    const act = mod.id === state.currentModule;
+    return `<button type="button" class="btn${act ? " active" : ""}" data-module="${mod.id}" aria-pressed="${act}">${esc(mod.title)} · ${t}/${mod.commands.length}</button>`;
+  }).join("");
+  moduleNav.querySelectorAll("button").forEach(btn => btn.addEventListener("click", () => switchModule(btn.dataset.module)));
+}
+function buildChecklist() {
+  cmdChecklist.innerHTML = getCurrentCommands().map(c =>
+    `<li><button type="button" class="cmd-btn" data-cmd="${esc(c)}" title="${esc(UK_HINTS[c] || "")}"><code>${esc(c)}</code></button></li>`).join("");
+  cmdChecklist.querySelectorAll("button[data-cmd]").forEach(b => {
+    b.addEventListener("click", () => { cmdInput.value = b.dataset.cmd; cmdInput.focus(); });
+  });
+  updateProgress();
+  updateModuleNav();
+}
+function switchModule(id) {
+  if (!MODULES[id]) return;
+  if (state.testMode.active) stopTestMode(true);
+  state.currentModule = id;
+  saveProgress();
+  buildChecklist();
+  beginView(null);
+  const m = getModule();
+  printResult(`Розділ: ${m.title}`, `<span class="line-muted">${esc(m.intro)}</span><br><span class="line-hl">Команд:</span> ${m.commands.length}`, "purple",
+    "Клік по команді зліва вставляє її в поле — натисни Enter. Зараховується лише точна команда (або її явний еквівалент).");
+  flushView(`${promptText()} · ${m.title}`);
+}
+function welcome() {
+  beginView(null);
+  print(`<div class="line-muted">MikroTik RouterOS 7 — емуляція CLI (без справжнього роутера)</div>`);
+  printResult("Почни з безпечних команд", `
+    <span class="line-cmd">/system resource print</span> · <span class="line-cmd">/interface print</span><br>
+    <span class="line-cmd">/export file=before-change</span> · <kbd>Ctrl</kbd>+<kbd>X</kbd> — Safe Mode`, "ok",
+    "Головна мета — не вивчити всі команди, а навчитися швидко знаходити потрібну команду, розуміти її ризик і застосовувати її в реальному сценарії.");
+  flushView(`${promptText()} · ${getModule().title}`);
+}
+function execute(raw) {
+  const cmd = raw.trim();
+  if (!cmd) return;
+  if (state.testMode.active) { handleTestAnswer(cmd); return; }
+  state.history.push(cmd);
+  state.histIdx = state.history.length;
+  beginView(cmd);
+  const listed = getCurrentCommands().find(c => matches(cmd, c));
+  if (!listed) {
+    const owner = MODULE_LIST.find(m => m.commands.some(c => matches(cmd, c[0])));
+    if (owner && owner.id !== state.currentModule) print(`<div class="line-warn">Ця команда — з розділу «${esc(owner.title)}». Тут вона не зараховується.</div>`);
+  }
+  const ok = emulate(cmd);
+  flushView(`${promptText()} · ${getModule().title} · ${cmd}`);
+  if (ok === "ok" && listed) markTried(listed);
+}
+function markTried(listed) {
+  getTried().add(listed);
+  saveProgress();
+  updateProgress();
+  updateModuleNav();
+}
+
+/* ---------- тест-режим ---------- */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function buildTestQueue() { return shuffleArray(allCommands().filter(c => UK_HINTS[c]).map(c => ({ cmd: c, hint: UK_HINTS[c] }))); }
+function updateTestButton() {
+  const btn = $("btnTest"), skip = $("btnSkip");
+  btn.textContent = state.testMode.active ? "Зупинити тест" : "Режим тестування";
+  btn.classList.toggle("active", state.testMode.active);
+  btn.setAttribute("aria-pressed", state.testMode.active ? "true" : "false");
+  skip.hidden = !state.testMode.active;
+}
+function showTestQuestion() {
+  const tm = state.testMode;
+  const q = tm.queue[tm.index];
+  if (!q) { finishTestMode(); return; }
+  tm.answered = false;
+  beginView(null);
+  printResult(`Тест ${tm.index + 1}/${tm.queue.length}`, `
+    <div class="test-question">Яка команда RouterOS: <em>${esc(q.hint)}</em></div>
+    <span class="line-muted">Введи команду і Enter або натисни «Пропустити». Правильно: ${tm.correct}, помилок: ${tm.wrong}</span>`, "purple");
+  flushView(`Тест · ${tm.index + 1}/${tm.queue.length}`);
+}
+function startTestMode() {
+  state.testMode = { active: true, queue: buildTestQueue(), index: 0, correct: 0, wrong: 0, answered: false };
+  updateTestButton();
+  showTestQuestion();
+  cmdInput.focus();
+}
+function stopTestMode(silent) { state.testMode.active = false; updateTestButton(); if (!silent) welcome(); }
+function finishTestMode() {
+  const tm = state.testMode;
+  const pct = tm.queue.length ? Math.round((tm.correct / tm.queue.length) * 100) : 0;
+  beginView(null);
+  printResult("Тест завершено", `<span class="line-ok">Правильно: ${tm.correct}/${tm.queue.length} (${pct}%)</span><br><span class="line-warn">Помилок / пропущено: ${tm.wrong}</span>`, pct >= 70 ? "ok" : "warn");
+  flushView("Тест завершено");
+  state.testMode.active = false;
+  updateTestButton();
+}
+function nextTestQuestion() { state.testMode.index++; showTestQuestion(); }
+function handleTestAnswer(cmd) {
+  const tm = state.testMode;
+  const q = tm.queue[tm.index];
+  if (!q || tm.answered) return;
+  tm.answered = true;
+  beginView(cmd);
+  if (matches(cmd, q.cmd)) {
+    tm.correct++;
+    printResult("✓ Правильно!", `<span class="line-ok">${esc(q.cmd)}</span>`, "ok", q.hint);
+  } else {
+    tm.wrong++;
+    printResult("✗ Ні", `<span class="line-err">Очікувалось: ${esc(q.cmd)}</span>`, "warn", q.hint);
+  }
+  flushView(`Тест · ${tm.correct}✓ ${tm.wrong}✗`);
+  setTimeout(() => { if (state.testMode.active && state.testMode.queue[tm.index] === q) nextTestQuestion(); }, 1500);
+}
+function skipTestQuestion() {
+  const tm = state.testMode;
+  if (!tm.active) return;
+  const q = tm.queue[tm.index];
+  if (q && !tm.answered) {
+    tm.wrong++;
+    beginView(null);
+    printResult("Пропущено", `<span class="line-muted">Відповідь: </span><span class="line-cmd">${esc(q.cmd)}</span>`, "warn", q.hint);
+    flushView("Тест · пропущено");
+  }
+  nextTestQuestion();
+  cmdInput.focus();
+}
+
+/* ---------- init ---------- */
+if (/[?&]embed=1/.test(location.search)) document.body.classList.add("embed");
+
+$("cmdForm").addEventListener("submit", e => {
+  e.preventDefault();
+  execute(cmdInput.value);
+  cmdInput.value = "";
+});
+cmdInput.addEventListener("keydown", e => {
+  const noSelection = cmdInput.selectionStart === cmdInput.selectionEnd;
+  if ((e.ctrlKey && !e.metaKey && !e.altKey && (e.code === "KeyX" || e.key === "x" || e.key === "X") && noSelection) || e.key === "F4") {
+    // Ctrl+X з виділеним текстом лишається «вирізати»
+    e.preventDefault();
+    toggleSafe();
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (state.histIdx > 0) { state.histIdx--; cmdInput.value = state.history[state.histIdx] || ""; }
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    if (state.histIdx < state.history.length - 1) { state.histIdx++; cmdInput.value = state.history[state.histIdx] || ""; }
+    else { state.histIdx = state.history.length; cmdInput.value = ""; }
+  } else if (e.key === "Tab" && !e.shiftKey) {
+    // Доповнення лише коли є що доповнити; інакше Tab переводить фокус далі (без пастки).
+    const val = cmdInput.value;
+    if (!val.trim()) return;
+    const match = getCurrentCommands().find(c => c.toLowerCase().startsWith(val.toLowerCase()) && c.toLowerCase() !== val.toLowerCase());
+    if (match) { e.preventDefault(); cmdInput.value = match; }
+  }
+});
+$("btnTest").addEventListener("click", () => { state.testMode.active ? stopTestMode() : startTestMode(); });
+$("btnSkip").addEventListener("click", skipTestQuestion);
+$("btnSafe").addEventListener("click", () => { toggleSafe(); cmdInput.focus(); });
+$("btnDrop").addEventListener("click", dropConnection);
+$("btnReset").addEventListener("click", () => { if (state.testMode.active) stopTestMode(true); initRouter(); updatePrompt(); welcome(); });
+$("btnResetProgress").addEventListener("click", () => {
+  if (!confirm("Скинути прогрес усіх розділів тренажера?")) return;
+  Object.keys(state.triedByModule).forEach(k => state.triedByModule[k].clear());
+  saveProgress(); buildChecklist();
+});
+
+initRouter();
+loadProgress();
+buildChecklist();
+welcome();
+  </script>
+</body>
+</html>

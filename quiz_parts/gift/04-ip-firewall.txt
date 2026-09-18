@@ -63,11 +63,11 @@
 }
 
 ::Небезпечні firewall-дії::
-Яку дію в firewall краще не робити без backup і safe-mode? {
+Яку дію в firewall краще не робити без backup і Safe Mode? {
 =/ip firewall filter remove
 ~/ip firewall filter print detail
 ~/ip firewall filter reset-counters
-#### `remove` на filter або nat може відкрити мережу або заблокувати управління. Перед змінами — `export` і `/safe-mode`.
+#### `remove` на filter або nat може відкрити мережу або заблокувати управління. Перед змінами — `export` і Safe Mode (Ctrl+X).
 }
 
 ::SSH налаштування::

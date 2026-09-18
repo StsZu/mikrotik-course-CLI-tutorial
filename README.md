@@ -1,57 +1,45 @@
-# MikroTik RouterOS CLI — Тренажер
+# MikroTik RouterOS CLI — курс
 
-Інтерактивний HTML-тренажер команд RouterOS CLI українською + quiz-сторінка.
+Офлайн-курс командного рядка RouterOS 7 українською: 7 модулів, 13 уроків, фінальний іспит, шпаргалка, тренажер і банк питань.
 
-**Без SSH** — статичні `index.html` і `quiz.html`, працюють локально або на GitHub Pages.
+**Без збірки й без роутера** — статичні сторінки, працюють з диска (`file://`) або на GitHub Pages.
 
 ## Швидкий старт
 
 ```bash
-open index.html
-# Quiz: open quiz.html
-```
-
-## Перегенерація
-
-```bash
-python3 scripts/build_trainer.py   # index.html
-python3 scripts/build_quiz_html.py # quiz.html з GIFT
+open index.html      # курс (уроки, quiz, іспит, шпаргалка, словник)
+open trainer.html    # тренажер-емулятор RouterOS CLI
+open quiz.html       # банк питань (54, GIFT)
 ```
 
 ## Сторінки
 
 | Сторінка | Зміст |
 |----------|--------|
-| **index.html** | Емулятор CLI — 6 розділів, ~55 команд, режим тестування |
-| **quiz.html** | 54 питання GIFT — 3 варіанти + feedback |
+| **index.html** | Курс на спільному рушії CLI Course Hub (генерується `node scripts/render-index.mjs courses/mikrotik` у hub) |
+| **trainer.html** | Емулятор RouterOS 7 — 6 розділів, строгий матчинг, Safe Mode через Ctrl+X, тест-режим |
+| **quiz.html** | 54 питання GIFT — 3 варіанти, перемішування, feedback |
 
-## Розділи тренажера
+## Модулі
 
-1. CLI та безпека — safe-mode, export, backup, print
-2. Система і діагностика — resource, log, tool
-3. Інтерфейси — bridge, wifi, wireguard
-4. IP і маршрути — route, dns, dhcp
-5. Firewall і доступ — filter, nat, user, services
-6. VPN і сертифікати — ipsec, certificate
+1. CLI RouterOS: шляхи й дії — `/`, Tab, F1, `print`, `add`, `set`, `remove`
+2. Безпечні зміни — `/export`, `/system backup save`, Safe Mode (Ctrl+X), `/undo`
+3. Система і діагностика — resource, package, log, `/ping`, traceroute, torch
+4. Інтерфейси — bridge, VLAN, списки, Wi‑Fi, WireGuard
+5. IP, маршрути, DNS, DHCP
+6. Firewall і доступ — filter, nat, user, services
+7. VPN і сертифікати — IPsec, certificate
 
-## Quiz (GIFT Moodle)
+## Перегенерація
 
-Файли в `quiz_parts/gift/`:
+```bash
+python3 scripts/build_quiz_html.py   # quiz.html з quiz_parts/gift/*.txt
+```
 
-- `01-cli-basics.txt` — CLI основи
-- `02-safety.txt` — безпека
-- `03-interface.txt` — інтерфейси
-- `04-ip-firewall.txt` — IP і firewall
-- `05-vpn-cert.txt` — VPN і certs
-- `06-daily-practice.txt` — щоденна практика
-
-Імпорт у Moodle: Question bank → Import → GIFT format.
+`scripts/build_trainer.py` — архів старого генератора; тренажер редагується прямо в `trainer.html`.
 
 ## Джерела
 
-- `mikrotik_routeros_cli_commands_uk.md`
+- `mikrotik_routeros_cli_commands_uk.md` (архівний довідник)
 - https://help.mikrotik.com/docs/spaces/ROS/pages/328134/Command+Line+Interface
-
-## GitHub Pages
-
-Settings → Pages → `main` → `/ (root)`.
+- https://help.mikrotik.com/docs/spaces/ROS/pages/328155/Configuration+Management

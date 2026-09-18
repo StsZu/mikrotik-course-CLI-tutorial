@@ -30,12 +30,12 @@
 #### `/ip route print` — щоденна перевірка default route, статичних і динамічних маршрутів.
 }
 
-::tool ping::
-Чим `/tool ping` зручний для діагностики? {
-=діагностичний ping з роутера з додатковими параметрами
-~імпортує конфігурацію з файлу
-~видаляє NAT-правила
-#### Також є коротка `/ping 8.8.8.8`, але `/tool ping` дає більше опцій. Для маршруту: `/tool traceroute`.
+::Ping з роутера::
+Як з роутера надіслати рівно 4 ping-запити до 8.8.8.8? {
+=/ping 8.8.8.8 count=4
+~/ping 8.8.8.8 -c 4
+~/tool traceroute 8.8.8.8
+#### `count=` задає кількість запитів; без нього ping триває до Ctrl+C. Та сама команда є як `/tool ping`. `-c 4` — синтаксис Linux/macOS, не RouterOS; traceroute показує шлях, а не пінгує.
 }
 
 ::Логи в реальному часі::
@@ -59,5 +59,5 @@
 =/ip firewall filter print та /ip firewall nat print
 ~/system reset-configuration та /import
 ~/interface disable на всіх портах
-#### Щоденна практика: filter, nat, address-list, connection print. Зміни — лише після `print detail`, export і safe-mode.
+#### Щоденна практика: filter, nat, address-list, connection print. Зміни — лише після `print detail`, export і Safe Mode (Ctrl+X).
 }

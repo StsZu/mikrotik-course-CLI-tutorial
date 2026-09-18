@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Generate index.html MikroTik RouterOS CLI trainer."""
+"""ARCHIVE: колись генерував index.html (старий тренажер).
+
+Тренажер тепер — courses/mikrotik/trainer.html (строгий матчинг, window.TRAINER, прогрес у localStorage,
+Safe Mode через Ctrl+X) і редагується напряму; index.html — оболонка курсу, яку генерує
+scripts/render-index.mjs у hub. Запуск цього скрипта перезаписав би оболонку застарілим тренажером,
+тому main() нічого не пише.
+"""
 import json
 from pathlib import Path
 
@@ -771,4 +777,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit("build_trainer.py — архів: тренажер тепер у trainer.html і редагується напряму (див. docstring).")

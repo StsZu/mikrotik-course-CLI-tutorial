@@ -67,5 +67,5 @@
 =/ip/ipsec policy remove
 ~/ip/ipsec statistics print
 ~/ip/ipsec active-peers print
-#### `policy remove`, `peer remove`, `identity remove`, `profile set`, `proposal set` — високий ризик. Перед змінами: safe-mode, backup, export.
+#### `policy remove`, `peer remove`, `identity remove`, `profile set`, `proposal set` — високий ризик. Перед змінами: Safe Mode (Ctrl+X), backup, export.
 }

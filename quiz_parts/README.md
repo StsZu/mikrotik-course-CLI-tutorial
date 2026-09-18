@@ -9,13 +9,13 @@
 | Файл | Тема | Питань |
 |------|------|--------|
 | [`gift/01-cli-basics.txt`](gift/01-cli-basics.txt) | Основи CLI: `/`, Tab/F1, `print` vs `add`, шляхи меню | 9 |
-| [`gift/02-safety.txt`](gift/02-safety.txt) | Безпека: safe-mode, backup, export, ризик import, небезпечні команди | 9 |
+| [`gift/02-safety.txt`](gift/02-safety.txt) | Безпека: Safe Mode (Ctrl+X), backup, export, ризик import, небезпечні команди | 10 |
 | [`gift/03-interface.txt`](gift/03-interface.txt) | Інтерфейси: bridge, wifi, wireguard, vlan, ризик disable | 8 |
-| [`gift/04-ip-firewall.txt`](gift/04-ip-firewall.txt) | IP і firewall: розділи `/ip`, порядок правил, NAT, services, user | 9 |
-| [`gift/05-vpn-cert.txt`](gift/05-vpn-cert.txt) | VPN і сертифікати: IPsec peer/policy/installed-sa, certificates | 8 |
-| [`gift/06-daily-practice.txt`](gift/06-daily-practice.txt) | Щоденна практика: print-команди, `tool ping`, `log follow` | 8 |
+| [`gift/04-ip-firewall.txt`](gift/04-ip-firewall.txt) | IP і firewall: розділи `/ip`, порядок правил, NAT, services, user | 10 |
+| [`gift/05-vpn-cert.txt`](gift/05-vpn-cert.txt) | VPN і сертифікати: IPsec peer/policy/installed-sa, certificates | 9 |
+| [`gift/06-daily-practice.txt`](gift/06-daily-practice.txt) | Щоденна практика: print-команди, `/ping … count=`, `log follow` | 8 |
 
-**Разом: 51 питання**
+**Разом: 54 питання**
 
 ## Імпорт у Moodle
 
